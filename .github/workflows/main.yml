@@ -31,22 +31,22 @@ jobs:
 
       # Gebruik expliciet de Capacitor CLI zodat npx cap werkt in CI
 # Vervang je bestaande Add/Sync + build-blok door dit:
-- name: Add/Sync Android (installs native plugins)
-  run: |
-    npx --yes @capacitor/cli@5 add android || true
-    npx --yes @capacitor/cli@5 sync android
+      - name: Add/Sync Android (installs native plugins)
+        run: |
+          npx --yes @capacitor/cli@5 add android || true
+          npx --yes @capacitor/cli@5 sync android
 
 # 🔧 Patch: voeg BuildConfig.java toe in de BG-plugin (AGP 8 fix)
-- name: Patch BG plugin BuildConfig (AGP8 fix)
-  run: |
-    PLUG="node_modules/@capacitor-community/background-geolocation/android/src/main/java/com/equimaps/capacitor_background_geolocation"
-    mkdir -p "$PLUG"
-    cat > "$PLUG/BuildConfig.java" <<'EOF'
-    package com.equimaps.capacitor_background_geolocation;
-    public final class BuildConfig {
-      public static final boolean DEBUG = false;
-    }
-    EOF
+    - name: Patch BG plugin BuildConfig (AGP8 fix)
+      run: |
+        PLUG="node_modules/@capacitor-community/background-geolocation/android/src/main/java/com/equimaps/capacitor_background_geolocation"
+        mkdir -p "$PLUG"
+        cat > "$PLUG/BuildConfig.java" <<'EOF'
+        package com.equimaps.capacitor_background_geolocation;
+        public final class BuildConfig {
+          public static final boolean DEBUG = false;
+        }
+        EOF
 
 - name: Make gradle executable (Linux)
   run: chmod +x android/gradlew
