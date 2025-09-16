@@ -23,6 +23,13 @@ jobs:
           distribution: temurin
           java-version: '17'
 
+      - name: Ensure plugin deps present in package.json
+        run: |
+          npm pkg set dependencies["@capacitor/local-notifications"]="^5.0.0"
+          npm pkg set dependencies["@capacitor/geolocation"]="^5.0.0"
+          npm pkg delete dependencies["@capacitor/notifications"] || true
+
+
       - name: Install deps
         run: npm install
 
