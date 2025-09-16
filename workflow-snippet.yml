@@ -1,0 +1,18 @@
+# Voeg dit blok toe in je Actions workflow (na npm install & build, vóór cap sync):
+
+- name: Ensure plugin deps present
+  run: |
+    npm pkg set dependencies["@capacitor/app"]="^5.0.0"
+    npm pkg set dependencies["@capacitor/geolocation"]="^5.0.0"
+    npm pkg set dependencies["@capacitor/local-notifications"]="^5.0.0"
+    npm pkg set dependencies["@capacitor-community/background-geolocation"]="1.2.4"
+    npm pkg set dependencies["@capacitor-community/keep-awake"]="^5.0.0"
+
+- name: Generate icons & splash (Android)
+  run: |
+    npx --yes @capacitor/assets@2 generate --android
+
+- name: Add/Sync Android (Capacitor CLI via npx)
+  run: |
+    npx --yes @capacitor/cli@5 add android || true
+    npx --yes @capacitor/cli@5 sync android

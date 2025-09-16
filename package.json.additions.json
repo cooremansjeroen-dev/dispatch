@@ -1,0 +1,9 @@
+{
+  "dependencies": {
+    "@capacitor/app": "^5.0.0",
+    "@capacitor/geolocation": "^5.0.0",
+    "@capacitor/local-notifications": "^5.0.0",
+    "@capacitor-community/background-geolocation": "1.2.4",
+    "@capacitor-community/keep-awake": "^5.0.0"
+  }
+}
