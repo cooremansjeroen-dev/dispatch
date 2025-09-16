@@ -13,7 +13,6 @@
     "@capacitor/core": "5.7.4",
     "@capacitor/android": "5.7.4",
     "@capacitor/ios": "5.7.4",
-    "@capacitor/notifications": "5.7.4",
     "@capacitor-community/background-geolocation": "1.2.4"
   },
   "devDependencies": {
