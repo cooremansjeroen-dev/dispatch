@@ -22,6 +22,14 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
+          
+      - name: Ensure plugin deps present (before install)
+        run: |
+          npm pkg set dependencies["@capacitor/app"]="^5.0.0"
+          npm pkg set dependencies["@capacitor/geolocation"]="^5.0.0"
+          npm pkg set dependencies["@capacitor/local-notifications"]="^5.0.0"
+          npm pkg set dependencies["@capacitor-community/background-geolocation"]="1.2.4"
+          npm pkg set dependencies["@capacitor-community/keep-awake"]="^5.0.0"
 
       - name: Install deps
         run: npm install
