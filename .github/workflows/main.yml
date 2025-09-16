@@ -8,7 +8,6 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -30,14 +29,23 @@ jobs:
       - name: Build web
         run: npm run build
 
-      - name: Install Capacitor CLI
-        run: npm i -D @capacitor/cli@5
-
-      - name: Add/Sync Android
+      # Gebruik expliciet de Capacitor CLI zodat npx cap werkt in CI
+      - name: Add/Sync Android (installs native plugins)
         run: |
-          npx cap add android || true
-          npx cap sync android
+          npx --yes @capacitor/cli@5 cap add android || true
+          npx --yes @capacitor/cli@5 cap sync android
 
+      # 🔧 Patch: voeg BuildConfig.java toe in de plugin-module (AGP 8 fix)
+      - name: Patch BG plugin BuildConfig (AGP8 fix)
+        run: |
+          PLUG="node_modules/@capacitor-community/background-geolocation/android/src/main/java/com/equimaps/capacitor_background_geolocation"
+          mkdir -p "$PLUG"
+          cat > "$PLUG/BuildConfig.java" <<'EOF'
+          package com.equimaps.capacitor_background_geolocation;
+          public final class BuildConfig {
+            public static final boolean DEBUG = false;
+          }
+          EOF
 
       - name: Make gradle executable (Linux)
         run: chmod +x android/gradlew
@@ -52,6 +60,7 @@ jobs:
           name: DispatchTracking-debug.apk
           path: android/app/build/outputs/apk/debug/app-debug.apk
 
+      # (optioneel) upload naar je site, maar alleen als SFTP secrets bestaan
       - name: Gate SFTP
         id: sftp_gate
         run: |
