@@ -1,23 +1,16 @@
-document.addEventListener('DOMContentLoaded', async () => {
-  await ensureNotificationPermission();  // <— voeg toe
-  bindUI();
-});
-
 import { registerPlugin } from '@capacitor/core';
 import { ENDPOINT_BASE, DEFAULT_TEAM, DEFAULT_INCIDENT_ID } from './config';
-// heel lichtgewicht: web Notifications permission voor Android 13+
-// (niet native, maar genoeg zodat de eerste foreground-notification niet faalt)
-async function ensureNotificationPermission() {
-  try {
-    if ('Notification' in window && (Notification as any).permission === 'default') {
-      await (Notification as any).requestPermission?.();
-    }
-  } catch(_) {}
-}
-
 
 interface BGPerm { location: 'granted' | 'denied' | 'prompt'; }
-interface BGOptions { requestPermissions?: boolean; stale?: boolean; backgroundTitle?: string; backgroundMessage?: string; distanceFilter?: number; stopOnTerminate?: boolean; startOnBoot?: boolean; }
+interface BGOptions {
+  requestPermissions?: boolean;
+  stale?: boolean;
+  backgroundTitle?: string;
+  backgroundMessage?: string;
+  distanceFilter?: number;
+  stopOnTerminate?: boolean;
+  startOnBoot?: boolean;
+}
 interface BGLocation { latitude: number; longitude: number; }
 interface BGError { code?: string; message?: string; }
 interface BackgroundGeolocationPlugin {
@@ -37,9 +30,19 @@ function setStatus(msg: string){
   if (el) el.textContent = msg;
 }
 
+// Android 13+: vraag meldingsrechten zodat de foreground-service mag tonen
+async function ensureNotificationPermission() {
+  try {
+    if ('Notification' in window) {
+      const perm = (Notification as any).permission;
+      if (perm === 'default') await (Notification as any).requestPermission?.();
+    }
+  } catch {}
+}
+
 async function postLocation(lat: number, lon: number) {
   const fd = new FormData();
-  fd.append('team', team);
+  fd.append('team', team || 'ploeg-1');
   fd.append('incident_id', incidentId);
   fd.append('lat', String(lat));
   fd.append('lon', String(lon));
@@ -48,62 +51,85 @@ async function postLocation(lat: number, lon: number) {
 }
 
 async function testPing(){
-  // 1) POST met vaste coördinaat (Antwerpen)
   try { await postLocation(51.2194, 4.4025); setStatus('POST ok'); }
-  catch(e:any){ setStatus('POST fout: ' + (e?.message || e)); }
-
-  // 2) GET met dezelfde coördinaat
+  catch(e:any){ setStatus('POST fout: '+(e?.message||e)); }
   try {
     const url = `${ENDPOINT_BASE}/api/track.php?team=${encodeURIComponent(team||'ploeg-1')}&lat=51.2194&lon=4.4025`;
     const r = await fetch(url, { cache:'no-store' });
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
-    setStatus((($('#status') as HTMLParagraphElement).textContent || '') + ' | GET ok');
+    setStatus((($('#status') as HTMLParagraphElement).textContent||'')+' | GET ok');
   } catch(e:any) {
-    setStatus((($('#status') as HTMLParagraphElement).textContent || '') + ' | GET fout: ' + (e?.message || e));
+    setStatus((($('#status') as HTMLParagraphElement).textContent||'')+' | GET fout: '+(e?.message||e));
   }
 }
 
-async function startTracking(){
-  if (watcherId) return;
+async function startWatcher(){
   const perm = await BackgroundGeolocation.requestPermissions();
   if (perm.location !== 'granted') { setStatus('Locatie-toestemming niet verleend'); return; }
-  setStatus('Start achtergrond tracking…');
-  watcherId = await BackgroundGeolocation.addWatcher(
-    { requestPermissions:false, stale:false, backgroundTitle:'Dispatch tracking', backgroundMessage:'Live locatie actief', distanceFilter:0, stopOnTerminate:false, startOnBoot:true },
-    async (location, error) => {
-      if (error) { setStatus('BG error: ' + (error.message || error.code)); return; }
-      if (!location) return;
-      try { await postLocation(location.latitude, location.longitude); setStatus('Sent @ ' + new Date().toLocaleTimeString()); }
-      catch(e:any){ setStatus('Netwerkfout: ' + (e?.message || e)); }
+
+  setStatus('Watcher starten…');
+  // Sommige toestellen reageren beter met interval hints (de plugin negeert onbekende keys zonder error)
+  // @ts-ignore
+  const opts: any = {
+    requestPermissions: false,
+    stale: false,
+    backgroundTitle: 'Dispatch tracking',
+    backgroundMessage: 'Live locatie actief',
+    distanceFilter: 0,
+    stopOnTerminate: false,
+    startOnBoot: true,
+    interval: 15000,
+    fastestInterval: 5000,
+  };
+
+  watcherId = await BackgroundGeolocation.addWatcher(opts, async (location, error) => {
+    if (error) {
+      setStatus('BG error: ' + (error.message || error.code));
+      return;
     }
-  );
+    if (!location) {
+      setStatus('BG: geen locatie');
+      return;
+    }
+    try {
+      await postLocation(location.latitude, location.longitude);
+      setStatus('Sent @ ' + new Date().toLocaleTimeString());
+    } catch(e:any) {
+      setStatus('Netwerkfout: ' + (e?.message || e));
+    }
+  });
+  setStatus('Watcher gestart');
 }
 
-async function stopTracking(){
-  if (watcherId) { await BackgroundGeolocation.removeWatcher({ id: watcherId }); watcherId = null; }
+async function start(){
+  await ensureNotificationPermission();  // belangrijk op Android 13+
+  if (!watcherId) await startWatcher();
+  // Forceer 1× POST + 1× GET zodat we zeker zijn dat netwerk/CORS ok is
+  await testPing();
+  (document.getElementById('toggleBtn') as HTMLButtonElement).textContent = 'Stop';
+}
+
+async function stop(){
+  if (watcherId) {
+    await BackgroundGeolocation.removeWatcher({ id: watcherId });
+    watcherId = null;
+  }
   setStatus('Tracking gestopt.');
-  (document.getElementById('toggleBtn') as HTMLButtonElement).textContent='Start';
+  (document.getElementById('toggleBtn') as HTMLButtonElement).textContent = 'Start';
 }
 
 function bindUI(){
   const teamEl = $('#team') as HTMLInputElement;
   const incEl  = $('#incident_id') as HTMLInputElement;
   const btn    = $('#toggleBtn') as HTMLButtonElement;
-  teamEl.value = DEFAULT_TEAM;
-  incEl.value  = DEFAULT_INCIDENT_ID;
+  teamEl.value = DEFAULT_TEAM; incEl.value = DEFAULT_INCIDENT_ID;
 
   (window as any).toggle = async () => {
-    // Zorg voor default team zodat we nooit stoppen vóór testPing
     team = (teamEl.value || '').trim() || 'ploeg-1';
     incidentId = (incEl.value || '').trim();
-
-    (document.getElementById('toggleBtn') as HTMLButtonElement).textContent='Stop';
-
-    // >>> Doe ALTIJD eerst de netwerk-test (zonder plugin/permissies)
-    await testPing();
-
-    // Daarna pas achtergrond-tracking starten (mag mislukken, test is al gepost)
-    if (!watcherId) await startTracking();
+    if (!watcherId) await start();
+    else await stop();
   };
 }
+
 document.addEventListener('DOMContentLoaded', bindUI);
