@@ -29,40 +29,36 @@ jobs:
       - name: Build web
         run: npm run build
 
-      # Gebruik expliciet de Capacitor CLI zodat npx cap werkt in CI
-# Vervang je bestaande Add/Sync + build-blok door dit:
+      # Capacitor CLI aanroepen via npx (zonder 'cap' subcommand)
       - name: Add/Sync Android (installs native plugins)
         run: |
           npx --yes @capacitor/cli@5 add android || true
           npx --yes @capacitor/cli@5 sync android
 
-# 🔧 Patch: voeg BuildConfig.java toe in de BG-plugin (AGP 8 fix)
-    - name: Patch BG plugin BuildConfig (AGP8 fix)
-      run: |
-        PLUG="node_modules/@capacitor-community/background-geolocation/android/src/main/java/com/equimaps/capacitor_background_geolocation"
-        mkdir -p "$PLUG"
-        cat > "$PLUG/BuildConfig.java" <<'EOF'
-        package com.equimaps.capacitor_background_geolocation;
-        public final class BuildConfig {
-          public static final boolean DEBUG = false;
-        }
-        EOF
+      # Patch voor BuildConfig in community BG plugin (anders compile error)
+      - name: Patch BG plugin BuildConfig (AGP8 fix)
+        run: |
+          PLUG="node_modules/@capacitor-community/background-geolocation/android/src/main/java/com/equimaps/capacitor_background_geolocation"
+          mkdir -p "$PLUG"
+          cat > "$PLUG/BuildConfig.java" <<'EOF'
+          package com.equimaps.capacitor_background_geolocation;
+          public final class BuildConfig { public static final boolean DEBUG = false; }
+          EOF
 
-- name: Make gradle executable (Linux)
-  run: chmod +x android/gradlew
+      - name: Make gradle executable (Linux)
+        run: chmod +x android/gradlew || true
 
-- name: Build APK (debug)
-  working-directory: android
-  run: ./gradlew assembleDebug
+      - name: Build APK (debug)
+        working-directory: android
+        run: ./gradlew assembleDebug
 
-- name: Upload APK artifact
-  uses: actions/upload-artifact@v4
-  with:
-    name: DispatchTracking-debug.apk
-    path: android/app/build/outputs/apk/debug/app-debug.apk
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: DispatchTracking-debug.apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
 
-
-      # (optioneel) upload naar je site, maar alleen als SFTP secrets bestaan
+      # Optioneel: upload naar je site (alleen als secrets bestaan)
       - name: Gate SFTP
         id: sftp_gate
         run: |
