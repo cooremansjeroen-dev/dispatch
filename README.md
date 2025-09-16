@@ -1,18 +1,21 @@
-# Dispatch Tracking — FIXED build (no Vite import issue)
+PATCH — Notifications + manifest + robust watcher
+-------------------------------------------------
+1) Voeg `@capacitor/notifications` toe aan je project (deze ZIP bevat `package.json.patch.json` met die dependency).
+   - Open een shell in je repo en run:  `npm i @capacitor/notifications@5`
 
-Deze versie **importeert de BG plugin niet meer in Vite**. In plaats daarvan gebruiken we
-`registerPlugin('BackgroundGeolocation')`. Zo kan Vite de webbuild doen zonder fout,
-én krijgt Android de native plugin via `npx cap sync android`.
+2) Kopieer/overschrijf in je repo:
+   - `src/main.ts`  (uit deze ZIP)
+   - `.github/workflows/main.yml` (uit deze ZIP)
 
-## Snelplan (GitHub Actions)
-1) Maak een **private repo** op GitHub en upload **de inhoud** van deze ZIP.
-2) Ga naar **Actions** → **Build & Upload Android Debug APK** → **Run workflow**.
-3) Download het APK bij **Artifacts**.  
-   *(Optioneel)* Zet SFTP secrets voor automatische upload.
+3) Commit & push → GitHub **Actions** → run workflow → installeer APK uit Artifacts.
 
-## Belangrijk
-- Endpoint staat op: `https://jeroencooremans.com/dispatch` (aanpasbaar in `src/config.ts`).
-- Workflow gebruikt nu **`npx cap sync android`** i.p.v. alleen copy.
-- Je **mag** de npm dependency `@capacitor-community/background-geolocation` laten staan; we importeren hem niet in web code.
+4) Op je toestel (Android 13/14): 
+   - Permissions → Location → **Allow all the time**
+   - Notifications → **Allowed**
+   - Battery → **Unrestricted**
+   - System Location → **On** + **Precise**
 
-Laatste update: 2025-09-16T16:16:08.598970Z
+5) App: druk **Start** → je ziet "Watcher gestart" en "POST ok | GET ok".
+   Vergrendel scherm en loop even → in `/dispatch/logs/track.log` verschijnen extra OK-regels.
+
+Laatste update: 2025-09-16T19:20:09.002470Z
