@@ -30,10 +30,11 @@ jobs:
       - name: Build web
         run: npm run build
 
-      - name: Add/Sync Android
+            - name: Add/Sync Android (installs native plugins)
         run: |
-          npx cap add android || true
-          npx cap copy android
+          npx --yes @capacitor/cli@5 cap add android || true
+          npx --yes @capacitor/cli@5 cap sync android
+
 
       - name: Make gradle executable (Linux)
         run: chmod +x android/gradlew
