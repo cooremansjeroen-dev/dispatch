@@ -2,7 +2,7 @@
 import { registerPlugin } from '@capacitor/core';
 import { ENDPOINT_BASE, DEFAULT_TEAM, DEFAULT_INCIDENT_ID } from './config';
 
-// Capacitor plugins (registered by name)
+// Background geolocation plugin
 interface BGPerm { location: 'granted' | 'denied' | 'prompt'; }
 interface BGOptions { requestPermissions?: boolean; stale?: boolean; backgroundTitle?: string; backgroundMessage?: string; distanceFilter?: number; stopOnTerminate?: boolean; startOnBoot?: boolean; }
 interface BGLocation { latitude: number; longitude: number; }
@@ -14,11 +14,11 @@ interface BackgroundGeolocationPlugin {
 }
 const BackgroundGeolocation = registerPlugin<BackgroundGeolocationPlugin>('BackgroundGeolocation');
 
-// Notifications plugin (Android 13+ runtime permission)
-interface NotificationsPlugin {
-  requestPermissions(): Promise<{ receive: 'granted'|'denied' }>;
+// Local Notifications plugin (bestaat wél): vraagt POST_NOTIFICATIONS permission op Android 13+
+interface LocalNotificationsPlugin {
+  requestPermissions(): Promise<{ display: 'granted'|'denied' }>;
 }
-const Notifications = registerPlugin<NotificationsPlugin>('Notifications');
+const LocalNotifications = registerPlugin<LocalNotificationsPlugin>('LocalNotifications');
 
 const $ = (q: string) => document.querySelector(q) as HTMLElement;
 let watcherId: string | null = null;
@@ -32,8 +32,7 @@ function setStatus(msg: string){
 
 async function ensureNotificationPermission() {
   try {
-    const res = await Notifications.requestPermissions();
-    // res.receive === 'granted' | 'denied'
+    await LocalNotifications.requestPermissions();
   } catch {}
 }
 
@@ -88,7 +87,7 @@ async function startWatcher(){
 }
 
 async function start(){
-  await ensureNotificationPermission();  // belangrijk op Android 13+
+  await ensureNotificationPermission();  // Android 13+ runtime notification permission
   if (!watcherId) await startWatcher();
   await testPing(); // Forceer 1× POST + 1× GET
   (document.getElementById('toggleBtn') as HTMLButtonElement).textContent = 'Stop';
