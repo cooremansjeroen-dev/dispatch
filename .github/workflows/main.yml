@@ -29,6 +29,12 @@ jobs:
       - name: Build web
         run: npm run build
 
+      # 🔽🔽🔽 HIER: assets genereren op basis van /resources/icon.png en /resources/splash.png
+      - name: Generate icons & splash (Android)
+        run: |
+          npx --yes @capacitor/assets@2 generate --android
+      # 🔼🔼🔼
+
       - name: Add/Sync Android (Capacitor CLI via npx)
         run: |
           npx --yes @capacitor/cli@5 add android || true
@@ -54,6 +60,7 @@ jobs:
           add_perm POST_NOTIFICATIONS
           add_perm RECEIVE_BOOT_COMPLETED
 
+      # Fix voor BG-plugin (AGP 8): BuildConfig stubs
       - name: Patch BG plugin BuildConfig stubs
         shell: bash
         run: |
