@@ -126,3 +126,87 @@ function bindUI(){
   };
 }
 document.addEventListener('DOMContentLoaded', bindUI);
+
+
+// ---------- MENU + KAART ----------
+import { ENDPOINT_BASE } from './config';
+
+function setActive(tab: 'track'|'map'){
+  const aTrack = document.getElementById('nav-track') as HTMLAnchorElement;
+  const aMap   = document.getElementById('nav-map') as HTMLAnchorElement;
+  aTrack.classList.toggle('active', tab==='track');
+  aMap.classList.toggle('active', tab==='map');
+
+  (document.getElementById('view-track')!).classList.toggle('hidden', tab!=='track');
+  (document.getElementById('view-map')!).classList.toggle('hidden', tab!=='map');
+}
+
+let mapInited = false;
+let mapObj: any = null;
+let leafletLoaded = false;
+let markers = new Map<string, any>();
+let mapTimer: any = null;
+
+function loadLeaflet(): Promise<void>{
+  if (leafletLoaded) return Promise.resolve();
+  return new Promise((resolve) => {
+    const css = document.createElement('link');
+    css.rel = 'stylesheet';
+    css.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+    document.head.appendChild(css);
+    const js = document.createElement('script');
+    js.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+    js.onload = () => { leafletLoaded = true; resolve(); };
+    document.body.appendChild(js);
+  });
+}
+
+async function initMap(){
+  if (mapInited) return;
+  await loadLeaflet();
+  // @ts-ignore
+  mapObj = (window as any).L.map('map').setView([51.0, 4.4], 8);
+  // @ts-ignore
+  (window as any).L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {maxZoom:19}).addTo(mapObj);
+
+  async function refresh(){
+    try{
+      const r = await fetch(`${ENDPOINT_BASE}/api/tracks_latest.php`, { cache: 'no-store' });
+      const j = await r.json();
+      if (!j.ok) return;
+      j.rows.forEach((row: any) => {
+        const key = row.team;
+        const lat = parseFloat(row.lat), lon = parseFloat(row.lon);
+        if (!isFinite(lat) || !isFinite(lon)) return;
+        if (markers.has(key)) {
+          markers.get(key).setLatLng([lat,lon]).bindTooltip(key, {permanent:false});
+        } else {
+          // @ts-ignore
+          const m = (window as any).L.marker([lat,lon], { title: key }).addTo(mapObj).bindTooltip(key);
+          markers.set(key, m);
+        }
+      });
+    }catch(_){}
+  }
+  await refresh();
+  mapTimer = setInterval(refresh, 5000);
+  mapInited = true;
+}
+
+function showView(which: 'track'|'map'){
+  setActive(which);
+  if (which === 'map') initMap();
+  if (which === 'track' && mapTimer) { clearInterval(mapTimer); mapTimer = null; }
+}
+
+window.addEventListener('hashchange', () => {
+  const tab = (location.hash.replace('#','') || 'track') as 'track'|'map';
+  showView(tab === 'map' ? 'map' : 'track');
+});
+
+// eerste load
+document.addEventListener('DOMContentLoaded', () => {
+  const tab = (location.hash.replace('#','') || 'track') as 'track'|'map';
+  showView(tab === 'map' ? 'map' : 'track');
+});
+
