@@ -34,6 +34,33 @@ jobs:
           npx --yes @capacitor/cli@5 add android || true
           npx --yes @capacitor/cli@5 sync android
 
+      - name: Ensure manifest permissions (Internet, location, notifications, FGS)
+        run: |
+          FILE="android/app/src/main/AndroidManifest.xml"
+
+          ensure_perm() {
+          P=$1
+          grep -q "android.permission.${P}" "$FILE" || \
+          sed -i "s#</manifest>#  <uses-permission android:name=\"android.permission.${P}\" />\n</manifest>#g" "$FILE"
+          }
+
+          ensure_perm INTERNET
+          ensure_perm ACCESS_COARSE_LOCATION
+          ensure_perm ACCESS_FINE_LOCATION
+          ensure_perm ACCESS_BACKGROUND_LOCATION
+          ensure_perm FOREGROUND_SERVICE
+          ensure_perm FOREGROUND_SERVICE_LOCATION
+          ensure_perm WAKE_LOCK
+          
+    # Android 13+ meldingen
+    
+          ensure_perm POST_NOTIFICATIONS
+
+    # Sommige OEMs vereisen boot-complete om op te starten (we gebruiken het niet actief, maar schaadt niet)
+    
+          ensure_perm RECEIVE_BOOT_COMPLETED
+
+
       # Plugin-compat stubs (anders compile error op AGP 8)
       - name: Patch BG plugin BuildConfig stubs
         run: |
