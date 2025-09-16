@@ -1,3 +1,4 @@
+
 name: Build & Upload Android Debug APK
 
 on:
@@ -34,19 +35,16 @@ jobs:
           npx --yes @capacitor/cli@5 add android || true
           npx --yes @capacitor/cli@5 sync android
 
-      # ✅ Zet INTERNET + locatie + notificatie + FGS permissies in AndroidManifest.xml
       - name: Ensure manifest permissions (Internet, location, notifications, FGS)
         shell: bash
         run: |
           FILE="android/app/src/main/AndroidManifest.xml"
-
           add_perm() {
             local P="$1"
             if ! grep -q "android.permission.${P}" "$FILE"; then
               sed -i "s#</manifest>#  <uses-permission android:name=\"android.permission.${P}\" />\\n</manifest>#g" "$FILE"
             fi
           }
-
           add_perm INTERNET
           add_perm ACCESS_COARSE_LOCATION
           add_perm ACCESS_FINE_LOCATION
@@ -57,7 +55,7 @@ jobs:
           add_perm POST_NOTIFICATIONS
           add_perm RECEIVE_BOOT_COMPLETED
 
-      # 🔧 BuildConfig-stubs voor community BG plugin (anders compile error)
+      # Stubs voor community BG plugin (anders compile error met AGP 8)
       - name: Patch BG plugin BuildConfig stubs
         shell: bash
         run: |
@@ -67,7 +65,6 @@ jobs:
           package com.equimaps.capacitor_background_geolocation;
           public final class BuildConfig { public static final boolean DEBUG = false; }
           EOF
-
           CAP="node_modules/@capacitor-community/background-geolocation/android/src/main/java/com/getcapacitor/android"
           mkdir -p "$CAP"
           cat > "$CAP/BuildConfig.java" <<'EOF'
