@@ -30,7 +30,7 @@ jobs:
       - name: Build web
         run: npm run build
 
-            - name: Add/Sync Android (installs native plugins)
+            - name: Add/Sync Android
         run: |
           npx --yes @capacitor/cli@5 cap add android || true
           npx --yes @capacitor/cli@5 cap sync android
