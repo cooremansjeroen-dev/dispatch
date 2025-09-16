@@ -23,23 +23,11 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Ensure plugin deps present in package.json
-        run: |
-          npm pkg set dependencies["@capacitor/local-notifications"]="^5.0.0"
-          npm pkg set dependencies["@capacitor/geolocation"]="^5.0.0"
-          npm pkg delete dependencies["@capacitor/notifications"] || true
-
-
       - name: Install deps
         run: npm install
 
       - name: Build web
         run: npm run build
-
-      - name: Install plugins (Local Notifications + Geolocation)
-        run: |
-          npm i @capacitor/local-notifications@5
-          npm i @capacitor/geolocation@5
 
       - name: Add/Sync Android (Capacitor CLI via npx)
         run: |
@@ -66,7 +54,6 @@ jobs:
           add_perm POST_NOTIFICATIONS
           add_perm RECEIVE_BOOT_COMPLETED
 
-      # Stubs voor community BG plugin (AGP 8 fix)
       - name: Patch BG plugin BuildConfig stubs
         shell: bash
         run: |
