@@ -30,10 +30,13 @@ jobs:
       - name: Build web
         run: npm run build
 
-            - name: Add/Sync Android
+      - name: Install Capacitor CLI
+        run: npm i -D @capacitor/cli@5
+
+      - name: Add/Sync Android
         run: |
-          npx --yes @capacitor/cli@5 cap add android || true
-          npx --yes @capacitor/cli@5 cap sync android
+          npx cap add android || true
+          npx cap sync android
 
 
       - name: Make gradle executable (Linux)
