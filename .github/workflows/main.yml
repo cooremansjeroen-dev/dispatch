@@ -17,10 +17,10 @@ jobs:
         with:
           node-version: 18
 
-      - name: Setup Java
+      - name: Setup Java (Gradle)
         uses: actions/setup-java@v4
         with:
-          distribution: 'temurin'
+          distribution: temurin
           java-version: '17'
 
       - name: Install deps
@@ -29,40 +29,37 @@ jobs:
       - name: Build web
         run: npm run build
 
-      - name: Add/Sync Android
+      - name: Add/Sync Android (Capacitor CLI via npx)
         run: |
           npx --yes @capacitor/cli@5 add android || true
           npx --yes @capacitor/cli@5 sync android
 
+      # ✅ Zet INTERNET + locatie + notificatie + FGS permissies in AndroidManifest.xml
       - name: Ensure manifest permissions (Internet, location, notifications, FGS)
+        shell: bash
         run: |
           FILE="android/app/src/main/AndroidManifest.xml"
 
-          ensure_perm() {
-          P=$1
-          grep -q "android.permission.${P}" "$FILE" || \
-          sed -i "s#</manifest>#  <uses-permission android:name=\"android.permission.${P}\" />\n</manifest>#g" "$FILE"
+          add_perm() {
+            local P="$1"
+            if ! grep -q "android.permission.${P}" "$FILE"; then
+              sed -i "s#</manifest>#  <uses-permission android:name=\"android.permission.${P}\" />\\n</manifest>#g" "$FILE"
+            fi
           }
 
-          ensure_perm INTERNET
-          ensure_perm ACCESS_COARSE_LOCATION
-          ensure_perm ACCESS_FINE_LOCATION
-          ensure_perm ACCESS_BACKGROUND_LOCATION
-          ensure_perm FOREGROUND_SERVICE
-          ensure_perm FOREGROUND_SERVICE_LOCATION
-          ensure_perm WAKE_LOCK
-          
-    # Android 13+ meldingen
-    
-          ensure_perm POST_NOTIFICATIONS
+          add_perm INTERNET
+          add_perm ACCESS_COARSE_LOCATION
+          add_perm ACCESS_FINE_LOCATION
+          add_perm ACCESS_BACKGROUND_LOCATION
+          add_perm FOREGROUND_SERVICE
+          add_perm FOREGROUND_SERVICE_LOCATION
+          add_perm WAKE_LOCK
+          add_perm POST_NOTIFICATIONS
+          add_perm RECEIVE_BOOT_COMPLETED
 
-    # Sommige OEMs vereisen boot-complete om op te starten (we gebruiken het niet actief, maar schaadt niet)
-    
-          ensure_perm RECEIVE_BOOT_COMPLETED
-
-
-      # Plugin-compat stubs (anders compile error op AGP 8)
+      # 🔧 BuildConfig-stubs voor community BG plugin (anders compile error)
       - name: Patch BG plugin BuildConfig stubs
+        shell: bash
         run: |
           PLUG="node_modules/@capacitor-community/background-geolocation/android/src/main/java/com/equimaps/capacitor_background_geolocation"
           mkdir -p "$PLUG"
@@ -70,6 +67,7 @@ jobs:
           package com.equimaps.capacitor_background_geolocation;
           public final class BuildConfig { public static final boolean DEBUG = false; }
           EOF
+
           CAP="node_modules/@capacitor-community/background-geolocation/android/src/main/java/com/getcapacitor/android"
           mkdir -p "$CAP"
           cat > "$CAP/BuildConfig.java" <<'EOF'
@@ -77,7 +75,7 @@ jobs:
           public final class BuildConfig { public static final boolean DEBUG = false; }
           EOF
 
-      - name: Make gradle executable
+      - name: Make gradle executable (Linux)
         run: chmod +x android/gradlew || true
 
       - name: Build APK (debug)
