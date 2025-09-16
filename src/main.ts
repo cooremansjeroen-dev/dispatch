@@ -1,16 +1,10 @@
+
 import { registerPlugin } from '@capacitor/core';
 import { ENDPOINT_BASE, DEFAULT_TEAM, DEFAULT_INCIDENT_ID } from './config';
 
+// Capacitor plugins (registered by name)
 interface BGPerm { location: 'granted' | 'denied' | 'prompt'; }
-interface BGOptions {
-  requestPermissions?: boolean;
-  stale?: boolean;
-  backgroundTitle?: string;
-  backgroundMessage?: string;
-  distanceFilter?: number;
-  stopOnTerminate?: boolean;
-  startOnBoot?: boolean;
-}
+interface BGOptions { requestPermissions?: boolean; stale?: boolean; backgroundTitle?: string; backgroundMessage?: string; distanceFilter?: number; stopOnTerminate?: boolean; startOnBoot?: boolean; }
 interface BGLocation { latitude: number; longitude: number; }
 interface BGError { code?: string; message?: string; }
 interface BackgroundGeolocationPlugin {
@@ -19,6 +13,12 @@ interface BackgroundGeolocationPlugin {
   removeWatcher(opts: { id: string }): Promise<void>;
 }
 const BackgroundGeolocation = registerPlugin<BackgroundGeolocationPlugin>('BackgroundGeolocation');
+
+// Notifications plugin (Android 13+ runtime permission)
+interface NotificationsPlugin {
+  requestPermissions(): Promise<{ receive: 'granted'|'denied' }>;
+}
+const Notifications = registerPlugin<NotificationsPlugin>('Notifications');
 
 const $ = (q: string) => document.querySelector(q) as HTMLElement;
 let watcherId: string | null = null;
@@ -30,13 +30,10 @@ function setStatus(msg: string){
   if (el) el.textContent = msg;
 }
 
-// Android 13+: vraag meldingsrechten zodat de foreground-service mag tonen
 async function ensureNotificationPermission() {
   try {
-    if ('Notification' in window) {
-      const perm = (Notification as any).permission;
-      if (perm === 'default') await (Notification as any).requestPermission?.();
-    }
+    const res = await Notifications.requestPermissions();
+    // res.receive === 'granted' | 'denied'
   } catch {}
 }
 
@@ -68,8 +65,7 @@ async function startWatcher(){
   if (perm.location !== 'granted') { setStatus('Locatie-toestemming niet verleend'); return; }
 
   setStatus('Watcher starten…');
-  // Sommige toestellen reageren beter met interval hints (de plugin negeert onbekende keys zonder error)
-  // @ts-ignore
+  // @ts-ignore - hint intervals
   const opts: any = {
     requestPermissions: false,
     stale: false,
@@ -83,20 +79,10 @@ async function startWatcher(){
   };
 
   watcherId = await BackgroundGeolocation.addWatcher(opts, async (location, error) => {
-    if (error) {
-      setStatus('BG error: ' + (error.message || error.code));
-      return;
-    }
-    if (!location) {
-      setStatus('BG: geen locatie');
-      return;
-    }
-    try {
-      await postLocation(location.latitude, location.longitude);
-      setStatus('Sent @ ' + new Date().toLocaleTimeString());
-    } catch(e:any) {
-      setStatus('Netwerkfout: ' + (e?.message || e));
-    }
+    if (error) { setStatus('BG error: ' + (error.message || error.code)); return; }
+    if (!location) { setStatus('BG: geen locatie'); return; }
+    try { await postLocation(location.latitude, location.longitude); setStatus('Sent @ ' + new Date().toLocaleTimeString()); }
+    catch(e:any){ setStatus('Netwerkfout: ' + (e?.message || e)); }
   });
   setStatus('Watcher gestart');
 }
@@ -104,16 +90,12 @@ async function startWatcher(){
 async function start(){
   await ensureNotificationPermission();  // belangrijk op Android 13+
   if (!watcherId) await startWatcher();
-  // Forceer 1× POST + 1× GET zodat we zeker zijn dat netwerk/CORS ok is
-  await testPing();
+  await testPing(); // Forceer 1× POST + 1× GET
   (document.getElementById('toggleBtn') as HTMLButtonElement).textContent = 'Stop';
 }
 
 async function stop(){
-  if (watcherId) {
-    await BackgroundGeolocation.removeWatcher({ id: watcherId });
-    watcherId = null;
-  }
+  if (watcherId) { await BackgroundGeolocation.removeWatcher({ id: watcherId }); watcherId = null; }
   setStatus('Tracking gestopt.');
   (document.getElementById('toggleBtn') as HTMLButtonElement).textContent = 'Start';
 }
