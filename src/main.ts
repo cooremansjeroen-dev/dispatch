@@ -16,7 +16,11 @@ const $ = (q: string) => document.querySelector(q) as HTMLElement;
 let watcherId: string | null = null;
 let team = DEFAULT_TEAM;
 let incidentId = DEFAULT_INCIDENT_ID;
-function setStatus(msg: string){ const el = $('#status') as HTMLParagraphElement; if (el) el.textContent = msg; }
+
+function setStatus(msg: string){
+  const el = $('#status') as HTMLParagraphElement;
+  if (el) el.textContent = msg;
+}
 
 async function postLocation(lat: number, lon: number) {
   const fd = new FormData();
@@ -28,19 +32,19 @@ async function postLocation(lat: number, lon: number) {
   if (!r.ok) throw new Error(`HTTP ${r.status}`);
 }
 
-async function testPing() {
-  // 1) POST
+async function testPing(){
+  // 1) POST met vaste coördinaat (Antwerpen)
   try { await postLocation(51.2194, 4.4025); setStatus('POST ok'); }
-  catch(e:any){ setStatus('POST fout: '+(e?.message||e)); }
+  catch(e:any){ setStatus('POST fout: ' + (e?.message || e)); }
 
-  // 2) GET (heel simpel)
+  // 2) GET met dezelfde coördinaat
   try {
     const url = `${ENDPOINT_BASE}/api/track.php?team=${encodeURIComponent(team||'ploeg-1')}&lat=51.2194&lon=4.4025`;
     const r = await fetch(url, { cache:'no-store' });
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
-    setStatus(($('#status')!.textContent||'')+' | GET ok');
+    setStatus((($('#status') as HTMLParagraphElement).textContent || '') + ' | GET ok');
   } catch(e:any) {
-    setStatus(($('#status')!.textContent||'')+' | GET fout: '+(e?.message||e));
+    setStatus((($('#status') as HTMLParagraphElement).textContent || '') + ' | GET fout: ' + (e?.message || e));
   }
 }
 
@@ -54,29 +58,37 @@ async function startTracking(){
     async (location, error) => {
       if (error) { setStatus('BG error: ' + (error.message || error.code)); return; }
       if (!location) return;
-      try { await postLocation(location.latitude, location.longitude); setStatus('Sent @ '+new Date().toLocaleTimeString()); }
-      catch(e:any){ setStatus('Netwerkfout: '+(e?.message||e)); }
+      try { await postLocation(location.latitude, location.longitude); setStatus('Sent @ ' + new Date().toLocaleTimeString()); }
+      catch(e:any){ setStatus('Netwerkfout: ' + (e?.message || e)); }
     }
   );
 }
 
-async function stopTracking(){ if (watcherId) { await BackgroundGeolocation.removeWatcher({ id: watcherId }); watcherId = null; } setStatus('Tracking gestopt.'); (document.getElementById('toggleBtn') as HTMLButtonElement).textContent='Start'; }
+async function stopTracking(){
+  if (watcherId) { await BackgroundGeolocation.removeWatcher({ id: watcherId }); watcherId = null; }
+  setStatus('Tracking gestopt.');
+  (document.getElementById('toggleBtn') as HTMLButtonElement).textContent='Start';
+}
 
 function bindUI(){
   const teamEl = $('#team') as HTMLInputElement;
   const incEl  = $('#incident_id') as HTMLInputElement;
   const btn    = $('#toggleBtn') as HTMLButtonElement;
-  teamEl.value = DEFAULT_TEAM; incEl.value = DEFAULT_INCIDENT_ID;
+  teamEl.value = DEFAULT_TEAM;
+  incEl.value  = DEFAULT_INCIDENT_ID;
+
   (window as any).toggle = async () => {
-    team = teamEl.value.trim() || 'ploeg-1';
-    incidentId = incEl.value.trim();
-    if (!watcherId) {
-      await startTracking();
-      (document.getElementById('toggleBtn') as HTMLButtonElement).textContent='Stop';
-      await testPing(); // <<< forceer 1 POST + 1 GET
-    } else {
-      await stopTracking();
-    }
+    // Zorg voor default team zodat we nooit stoppen vóór testPing
+    team = (teamEl.value || '').trim() || 'ploeg-1';
+    incidentId = (incEl.value || '').trim();
+
+    (document.getElementById('toggleBtn') as HTMLButtonElement).textContent='Stop';
+
+    // >>> Doe ALTIJD eerst de netwerk-test (zonder plugin/permissies)
+    await testPing();
+
+    // Daarna pas achtergrond-tracking starten (mag mislukken, test is al gepost)
+    if (!watcherId) await startTracking();
   };
 }
 document.addEventListener('DOMContentLoaded', bindUI);
