@@ -1,6 +1,29 @@
 
-import { BackgroundGeolocation } from '@capacitor-community/background-geolocation';
+import { registerPlugin } from '@capacitor/core';
 import { ENDPOINT_BASE, DEFAULT_TEAM, DEFAULT_INCIDENT_ID } from './config';
+
+// Declare minimal plugin interface so TS knows the methods.
+interface BGPerm { location: 'granted' | 'denied' | 'prompt'; }
+interface BGOptions {
+  requestPermissions?: boolean;
+  stale?: boolean;
+  backgroundTitle?: string;
+  backgroundMessage?: string;
+  distanceFilter?: number;
+  stopOnTerminate?: boolean;
+  startOnBoot?: boolean;
+}
+interface BGLocation { latitude: number; longitude: number; }
+interface BGError { code?: string; message?: string; }
+
+interface BackgroundGeolocationPlugin {
+  requestPermissions(): Promise<BGPerm>;
+  addWatcher(opts: BGOptions, callback: (loc?: BGLocation, err?: BGError) => void): Promise<string>;
+  removeWatcher(opts: { id: string }): Promise<void>;
+}
+
+// Register by name; native bridge is provided after `npx cap sync android`
+const BackgroundGeolocation = registerPlugin<BackgroundGeolocationPlugin>('BackgroundGeolocation');
 
 const $ = (q: string) => document.querySelector(q) as HTMLElement;
 let watcherId: string | null = null;

@@ -1,16 +1,18 @@
-# Dispatch Tracking — APK in 10 minuten (All-in-One)
+# Dispatch Tracking — FIXED build (no Vite import issue)
 
-Dit pakket bevat **alles** om een **APK** te bouwen via **GitHub Actions** (geen Android Studio nodig).
-Endpoint staat op: `https://jeroencooremans.com/dispatch`.
+Deze versie **importeert de BG plugin niet meer in Vite**. In plaats daarvan gebruiken we
+`registerPlugin('BackgroundGeolocation')`. Zo kan Vite de webbuild doen zonder fout,
+én krijgt Android de native plugin via `npx cap sync android`.
 
-## Snelplan (cloud build)
-1) Maak een **private GitHub-repo**.
-2) Upload de **inhoud** van deze ZIP (niet de ZIP zelf) in de repo-root.
-3) Ga naar **Actions** → **Build & Upload Android Debug APK** → **Run workflow**.
-4) Download het APK bij **Artifacts** (of laat ‘m via SFTP naar je site uploaden als je secrets zet).
+## Snelplan (GitHub Actions)
+1) Maak een **private repo** op GitHub en upload **de inhoud** van deze ZIP.
+2) Ga naar **Actions** → **Build & Upload Android Debug APK** → **Run workflow**.
+3) Download het APK bij **Artifacts**.  
+   *(Optioneel)* Zet SFTP secrets voor automatische upload.
 
-## SFTP (optioneel)
-Zet in repo **Settings → Secrets → Actions**: `SFTP_HOST`, `SFTP_USER`, `SFTP_PASS` en evt. `SFTP_PATH`. 
-De workflow uploadt dan naar `.../dispatch/app/DispatchTracking.apk`.
+## Belangrijk
+- Endpoint staat op: `https://jeroencooremans.com/dispatch` (aanpasbaar in `src/config.ts`).
+- Workflow gebruikt nu **`npx cap sync android`** i.p.v. alleen copy.
+- Je **mag** de npm dependency `@capacitor-community/background-geolocation` laten staan; we importeren hem niet in web code.
 
-Laatste update: 2025-09-16T16:06:24.416590Z
+Laatste update: 2025-09-16T16:16:08.598970Z
