@@ -1,0 +1,31 @@
+
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Dispatch Tracking</title>
+    <style>
+      body{font-family:system-ui,Segoe UI,Roboto,Arial,sans-serif;margin:0;background:#0b1118;color:#e6edf3}
+      .card{max-width:680px;margin:10vh auto;background:#0f172a;border:1px solid rgba(255,255,255,.1);padding:1rem 1.2rem;border-radius:16px}
+      .grid{display:grid;gap:1rem;grid-template-columns:1fr 1fr}
+      label{display:flex;flex-direction:column;gap:.4rem}
+      input{padding:.6rem;border-radius:10px;border:1px solid #263552;background:#0b1220;color:#e6edf3}
+      button{padding:.65rem 1rem;border:0;border-radius:12px;background:#ff3b30;color:#000;font-weight:700}
+      .small{color:#9fb0c7;font-size:.9rem}
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <h2>Dispatch Tracking</h2>
+      <div class="grid">
+        <label>Team<input id="team" placeholder="ploeg-1" /></label>
+        <label>Incident ID (optioneel)<input id="incident_id" /></label>
+      </div>
+      <p class="small">Klik Start: app blijft locatie posten (ook in achtergrond, met juiste toestemmingen).</p>
+      <button id="toggleBtn" onclick="toggle()">Start</button>
+      <p id="status" class="small"></p>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

@@ -1,0 +1,22 @@
+{
+  "name": "dispatch-tracking",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "serve": "vite preview",
+    "cap:copy": "cap copy",
+    "cap:open:android": "cap open android"
+  },
+  "dependencies": {
+    "@capacitor/core": "5.7.4",
+    "@capacitor/android": "5.7.4",
+    "@capacitor/ios": "5.7.4",
+    "@capacitor-community/background-geolocation": "1.2.4"
+  },
+  "devDependencies": {
+    "vite": "5.4.6",
+    "typescript": "5.5.4"
+  }
+}
