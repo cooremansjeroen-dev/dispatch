@@ -16,24 +16,33 @@ const $ = (q: string) => document.querySelector(q) as HTMLElement;
 let watcherId: string | null = null;
 let team = DEFAULT_TEAM;
 let incidentId = DEFAULT_INCIDENT_ID;
-
 function setStatus(msg: string){ const el = $('#status') as HTMLParagraphElement; if (el) el.textContent = msg; }
 
 async function postLocation(lat: number, lon: number) {
-  try{
-    const fd = new FormData();
-    fd.append('team', team);
-    fd.append('incident_id', incidentId);
-    fd.append('lat', String(lat));
-    fd.append('lon', String(lon));
-    const r = await fetch(`${ENDPOINT_BASE}/api/track.php`, { method: 'POST', body: fd, cache: 'no-store' });
-    if (!r.ok) throw new Error(`HTTP ${r.status}`);
-    setStatus(`Sent @ ${new Date().toLocaleTimeString()}`);
-  }catch(e:any){ setStatus(`Netwerkfout: ${e?.message || e}`); }
+  const fd = new FormData();
+  fd.append('team', team);
+  fd.append('incident_id', incidentId);
+  fd.append('lat', String(lat));
+  fd.append('lon', String(lon));
+  const r = await fetch(`${ENDPOINT_BASE}/api/track.php`, { method: 'POST', body: fd, cache: 'no-store' });
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
 }
 
-// >>> Forceer 1 post bij Start om netwerk/CORS te bewijzen
-async function testPing(){ try{ await postLocation(51.2194, 4.4025);}catch(_){} }
+async function testPing() {
+  // 1) POST
+  try { await postLocation(51.2194, 4.4025); setStatus('POST ok'); }
+  catch(e:any){ setStatus('POST fout: '+(e?.message||e)); }
+
+  // 2) GET (heel simpel)
+  try {
+    const url = `${ENDPOINT_BASE}/api/track.php?team=${encodeURIComponent(team||'ploeg-1')}&lat=51.2194&lon=4.4025`;
+    const r = await fetch(url, { cache:'no-store' });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    setStatus(($('#status')!.textContent||'')+' | GET ok');
+  } catch(e:any) {
+    setStatus(($('#status')!.textContent||'')+' | GET fout: '+(e?.message||e));
+  }
+}
 
 async function startTracking(){
   if (watcherId) return;
@@ -41,11 +50,12 @@ async function startTracking(){
   if (perm.location !== 'granted') { setStatus('Locatie-toestemming niet verleend'); return; }
   setStatus('Start achtergrond tracking…');
   watcherId = await BackgroundGeolocation.addWatcher(
-    { requestPermissions: false, stale: false, backgroundTitle: 'Dispatch tracking', backgroundMessage: 'Live locatie delen actief', distanceFilter: 0, stopOnTerminate: false, startOnBoot: true },
+    { requestPermissions:false, stale:false, backgroundTitle:'Dispatch tracking', backgroundMessage:'Live locatie actief', distanceFilter:0, stopOnTerminate:false, startOnBoot:true },
     async (location, error) => {
       if (error) { setStatus('BG error: ' + (error.message || error.code)); return; }
       if (!location) return;
-      await postLocation(location.latitude, location.longitude);
+      try { await postLocation(location.latitude, location.longitude); setStatus('Sent @ '+new Date().toLocaleTimeString()); }
+      catch(e:any){ setStatus('Netwerkfout: '+(e?.message||e)); }
     }
   );
 }
@@ -58,12 +68,12 @@ function bindUI(){
   const btn    = $('#toggleBtn') as HTMLButtonElement;
   teamEl.value = DEFAULT_TEAM; incEl.value = DEFAULT_INCIDENT_ID;
   (window as any).toggle = async () => {
-    team = teamEl.value.trim(); incidentId = incEl.value.trim();
-    if (!team) { alert('Team vereist'); return; }
+    team = teamEl.value.trim() || 'ploeg-1';
+    incidentId = incEl.value.trim();
     if (!watcherId) {
       await startTracking();
       (document.getElementById('toggleBtn') as HTMLButtonElement).textContent='Stop';
-      await testPing(); // <<< direct 1 punt
+      await testPing(); // <<< forceer 1 POST + 1 GET
     } else {
       await stopTracking();
     }
