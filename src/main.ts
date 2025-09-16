@@ -1,5 +1,20 @@
+document.addEventListener('DOMContentLoaded', async () => {
+  await ensureNotificationPermission();  // <— voeg toe
+  bindUI();
+});
+
 import { registerPlugin } from '@capacitor/core';
 import { ENDPOINT_BASE, DEFAULT_TEAM, DEFAULT_INCIDENT_ID } from './config';
+// heel lichtgewicht: web Notifications permission voor Android 13+
+// (niet native, maar genoeg zodat de eerste foreground-notification niet faalt)
+async function ensureNotificationPermission() {
+  try {
+    if ('Notification' in window && (Notification as any).permission === 'default') {
+      await (Notification as any).requestPermission?.();
+    }
+  } catch(_) {}
+}
+
 
 interface BGPerm { location: 'granted' | 'denied' | 'prompt'; }
 interface BGOptions { requestPermissions?: boolean; stale?: boolean; backgroundTitle?: string; backgroundMessage?: string; distanceFilter?: number; stopOnTerminate?: boolean; startOnBoot?: boolean; }
