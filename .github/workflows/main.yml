@@ -1,4 +1,3 @@
-
 name: Build & Upload Android Debug APK
 
 on:
@@ -35,6 +34,10 @@ jobs:
           npx --yes @capacitor/cli@5 add android || true
           npx --yes @capacitor/cli@5 sync android
 
+      # Installeer Local Notifications plugin (ook als het nog niet in package.json staat)
+      - name: Install Local Notifications plugin
+        run: npm i @capacitor/local-notifications@5
+
       - name: Ensure manifest permissions (Internet, location, notifications, FGS)
         shell: bash
         run: |
@@ -55,7 +58,7 @@ jobs:
           add_perm POST_NOTIFICATIONS
           add_perm RECEIVE_BOOT_COMPLETED
 
-      # Stubs voor community BG plugin (anders compile error met AGP 8)
+      # Stubs voor community BG plugin (AGP 8 fix)
       - name: Patch BG plugin BuildConfig stubs
         shell: bash
         run: |
