@@ -1,6 +1,8 @@
 // src/main.ts
 import { registerPlugin } from '@capacitor/core';
 import { Geolocation } from '@capacitor/geolocation';
+import { App } from '@capacitor/app';
+import { KeepAwake } from '@capacitor-community/keep-awake';
 import { ENDPOINT_BASE, DEFAULT_TEAM, DEFAULT_INCIDENT_ID } from './config';
 
 // -----------------------------
@@ -43,12 +45,22 @@ let incidentId = DEFAULT_INCIDENT_ID;
 function setStatus(msg: string){
   const el = $('#status') as HTMLParagraphElement;
   if (el) el.textContent = msg;
-  // ook in console voor inspect
   console.log('[STATUS]', msg);
 }
 
-async function ensureNotificationPermission() {
+async function ensureBackgroundOK() {
+  // Android 13+ notificatie-permissie
   try { await LocalNotifications.requestPermissions(); } catch {}
+
+  // Voorgrond-locatie
+  try { await Geolocation.requestPermissions(); } catch {}
+
+  // Achtergrond-permissie via BG plugin
+  const perm = await BackgroundGeolocation.requestPermissions();
+  if (perm.location !== 'granted') {
+    setStatus('Geef "Altijd toestaan" in App-instellingen');
+    try { await App.openSettings(); } catch {}
+  }
 }
 
 // -----------------------------
@@ -160,17 +172,18 @@ async function startWatcher(){
 }
 
 async function start(){
-  await ensureNotificationPermission();        // Android 13+ notificatie
-  try { await Geolocation.requestPermissions(); } catch {} // vraag locatierecht expliciet (foreground)
-  startForegroundFallback();                   // Foreground fallback
-  if (!watcherId) await startWatcher();        // Background watcher
-  await testPing();                            // 1× POST + 1× GET
+  await ensureBackgroundOK();
+  try { await KeepAwake.keepAwake(); } catch {}
+  startForegroundFallback();
+  if (!watcherId) await startWatcher();
+  await testPing();
   (document.getElementById('toggleBtn') as HTMLButtonElement).textContent = 'Stop';
 }
 
 async function stop(){
   stopForegroundFallback();
   if (watcherId) { await BackgroundGeolocation.removeWatcher({ id: watcherId }); watcherId = null; }
+  try { await KeepAwake.allowSleep(); } catch {}
   setStatus('Tracking gestopt.');
   (document.getElementById('toggleBtn') as HTMLButtonElement).textContent = 'Start';
 }
