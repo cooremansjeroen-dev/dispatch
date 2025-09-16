@@ -7,7 +7,6 @@ on:
 
 jobs:
   build:
-  
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -18,7 +17,7 @@ jobs:
         with:
           node-version: 18
 
-      - name: Setup Java (Gradle)
+      - name: Setup Java
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
@@ -30,24 +29,20 @@ jobs:
       - name: Build web
         run: npm run build
 
-      # Capacitor CLI aanroepen via npx (zonder 'cap' subcommand)
-      - name: Add/Sync Android (installs native plugins)
+      - name: Add/Sync Android
         run: |
           npx --yes @capacitor/cli@5 add android || true
           npx --yes @capacitor/cli@5 sync android
 
-      # 🔧 Patches voor community BG plugin (AGP8/BuildConfig fixes)
+      # Plugin-compat stubs (anders compile error op AGP 8)
       - name: Patch BG plugin BuildConfig stubs
         run: |
-          # 1) Stub in het plugin-package zelf
           PLUG="node_modules/@capacitor-community/background-geolocation/android/src/main/java/com/equimaps/capacitor_background_geolocation"
           mkdir -p "$PLUG"
           cat > "$PLUG/BuildConfig.java" <<'EOF'
           package com.equimaps.capacitor_background_geolocation;
           public final class BuildConfig { public static final boolean DEBUG = false; }
           EOF
-
-          # 2) Stub voor verouderde import: com.getcapacitor.android.BuildConfig
           CAP="node_modules/@capacitor-community/background-geolocation/android/src/main/java/com/getcapacitor/android"
           mkdir -p "$CAP"
           cat > "$CAP/BuildConfig.java" <<'EOF'
@@ -55,8 +50,7 @@ jobs:
           public final class BuildConfig { public static final boolean DEBUG = false; }
           EOF
 
-
-      - name: Make gradle executable (Linux)
+      - name: Make gradle executable
         run: chmod +x android/gradlew || true
 
       - name: Build APK (debug)
@@ -68,25 +62,3 @@ jobs:
         with:
           name: DispatchTracking-debug.apk
           path: android/app/build/outputs/apk/debug/app-debug.apk
-
-      # Optioneel: upload naar je site (alleen als secrets bestaan)
-      - name: Gate SFTP
-        id: sftp_gate
-        run: |
-          if [ -n "${{ secrets.SFTP_HOST }}" ] && [ -n "${{ secrets.SFTP_USER }}" ] && [ -n "${{ secrets.SFTP_PASS }}" ]; then
-            echo "ok=true" >> $GITHUB_OUTPUT
-          else
-            echo "ok=false" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Upload to site (optional)
-        if: steps.sftp_gate.outputs.ok == 'true'
-        uses: wlixcc/SFTP-Deploy-Action@v1.2.4
-        with:
-          username: ${{ secrets.SFTP_USER }}
-          server: ${{ secrets.SFTP_HOST }}
-          port: 22
-          password: ${{ secrets.SFTP_PASS }}
-          local_path: "android/app/build/outputs/apk/debug/app-debug.apk"
-          remote_path: "${{ secrets.SFTP_PATH || 'public_html' }}/dispatch/app/DispatchTracking.apk"
-          sftp_args: "-o StrictHostKeyChecking=no"
