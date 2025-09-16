@@ -29,14 +29,14 @@ jobs:
       - name: Build web
         run: npm run build
 
-      - name: Add/Sync Android (Capacitor CLI via npx)
-        run: |
-          npx --yes @capacitor/cli@5 add android || true
-          npx --yes @capacitor/cli@5 sync android
-
-      # Installeer Local Notifications plugin (ook als het nog niet in package.json staat)
       - name: Install Local Notifications plugin
         run: npm i @capacitor/local-notifications@5
+
+      - name: Add/Sync Android (Capacitor CLI via npx)
+        run: |
+              npx --yes @capacitor/cli@5 add android || true
+              npx --yes @capacitor/cli@5 sync android
+
 
       - name: Ensure manifest permissions (Internet, location, notifications, FGS)
         shell: bash
