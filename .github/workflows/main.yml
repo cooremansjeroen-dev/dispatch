@@ -68,25 +68,25 @@ jobs:
 
       # FTPS upload via cURL naar exact pad (let op dubbele slash // na host = absoluut pad)
       - name: Upload bundle + manifest (FTPS absolute path)
+        shell: bash
         env:
-          FTP_HOST: ftp.jeroencooremans.com   # bv. ftp.hostinger.com of ftp.jeroencooremans.com
-          FTP_USER: u642982818.ftpdisp
-          FTP_PASS: Tasme2589Ta7xntkp!
+          FTP_HOST: ${{ secrets.FTP_HOST }}      # bv. ftp.hostinger.com (géén ftp://)
+          FTP_USER: ${{ secrets.FTP_USER }}
+          FTP_PASS: ${{ secrets.FTP_PASS }}
+          FTP_INSECURE: ${{ secrets.FTP_INSECURE }} # zet op "true" als je IP/custom host gebruikt
         run: |
           set -e
-          if [ -z "${FTP_HOST}" ]; then
-            echo "FTP_HOST secret is leeg. Zet Secrets: FTP_HOST / FTP_USER / FTP_PASS."; exit 1
-          fi
           RUN=${{ github.run_number }}
           ZIP="web-bundle-${RUN}.zip"
 
-          # Als FTP_HOST een IP is -> TLS hostnaam-check uitschakelen (niet ideaal, maar werkt)
+          # --insecure aan als host IP is of FTP_INSECURE=true
           INSEC=""
-          if [[ "${FTP_HOST}" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+          if [[ "${FTP_HOST}" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ || "${FTP_INSECURE}" == "true" ]]; then
             INSEC="--insecure"
-            echo "FTP_HOST lijkt een IP; gebruik --insecure."
+            echo "TLS hostnaam-check uitgeschakeld (--insecure)."
           fi
 
+          # Let op: dubbele slash // forceert een absoluut pad op de server
           BASE_URL="ftp://${FTP_HOST}//domains/jeroencooremans.com/public_html/dispatch/app"
 
           echo "Uploading ${ZIP} -> ${BASE_URL}/"
