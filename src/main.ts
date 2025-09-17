@@ -1,4 +1,18 @@
 // src/main.ts
+const DISABLE_OTA_ONCE = true; // <<< tijdelijk
+
+async function start(){
+  if (!DISABLE_OTA_ONCE) {
+    await checkForUpdates();   // OTA ophalen + Updater.reload()
+  }
+  await ensureBackgroundOK();
+  startForegroundFallback();
+  if (!watcherId) await startWatcher();
+  await testPing();
+  (document.getElementById('toggleBtn') as HTMLButtonElement)?.textContent = 'Stop';
+  await showBuildInfo();
+}
+
 import { registerPlugin } from '@capacitor/core';
 import { Geolocation } from '@capacitor/geolocation';
 import { App } from '@capacitor/app';
@@ -8,6 +22,20 @@ import { ENDPOINT_BASE, DEFAULT_TEAM, DEFAULT_INCIDENT_ID } from './config';
 
 import { registerPlugin } from '@capacitor/core';
 // ... (je andere imports blijven staan)
+
+async function showBuildInfo() {
+  const appInfo = await App.getInfo();
+  let current: any = null;
+  try {
+    // capgo plugin varieert per versie:
+    if ((Updater as any).getCurrentBundleInfo) current = await (Updater as any).getCurrentBundleInfo();
+    else if ((Updater as any).current)         current = await (Updater as any).current();
+  } catch {}
+  const el = document.getElementById('build');
+  if (el) el.textContent = `native ${appInfo.version} | bundle ${current?.version || 'embedded'}`;
+}
+document.addEventListener('DOMContentLoaded', showBuildInfo);
+
 
 // Capgo Updater via registerPlugin (compat met verschillende API-namen)
 const Updater = registerPlugin<{
