@@ -62,15 +62,16 @@ jobs:
           mv version.json deploy/
 
       - name: Upload bundle + manifest (FTPS to Hostinger)
-        uses: SamKirkland/FTP-Deploy-Action@v4
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
           server: 185.224.138.88
           username: u642982818.jeroencooremans.com
-          password: Tasme2589Ta7xntkp!
+          password: hallo
           protocol: ftps
           port: 21
-          local-dir: deploy
+          local-dir: deploy/
           server-dir: public_html/dispatch/app/
+
 
       - name: Generate icons & splash (Android)
         run: |
