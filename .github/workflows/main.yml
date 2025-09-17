@@ -23,25 +23,56 @@ jobs:
           distribution: temurin
           java-version: '17'
           
-      -  name: Ensure plugin deps present (before install)
-         run: |
+      - name: Ensure plugin deps present (before install)
+        run: |
           npm pkg set dependencies["@capacitor/app"]="^5.0.0"
+          npm pkg set dependencies["@capacitor/browser"]="^5.0.0"
           npm pkg set dependencies["@capacitor/geolocation"]="^5.0.0"
           npm pkg set dependencies["@capacitor/local-notifications"]="^5.0.0"
+          npm pkg set dependencies["@capawesome-team/capacitor-updater"]="^5.0.0"
           npm pkg set dependencies["@capacitor-community/background-geolocation"]="1.2.4"
           npm pkg set dependencies["@capacitor-community/keep-awake"]="4.0.0"
-         
+
       - name: Install deps
         run: npm install
 
       - name: Build web
         run: npm run build
 
-      # 🔽🔽🔽 HIER: assets genereren op basis van /resources/icon.png en /resources/splash.png
+      # --- Update snippet: zip dist + manifest schrijven + upload ---
+      - name: Zip web bundle
+        run: |
+          cd dist
+          zip -r ../web-bundle-${{ github.run_number }}.zip .
+          cd ..
+
+      - name: Write version.json
+        run: |
+          cat > version.json <<EOF
+          {
+            "bundleVersion": "${{ github.run_number }}",
+            "bundleUrl": "https://jeroencooremans.com/dispatch/app/web-bundle-${{ github.run_number }}.zip",
+            "minNativeVersion": "1.0.2",
+            "apkUrl": "https://jeroencooremans.com/dispatch/app/DispatchTracking-latest.apk"
+          }
+          EOF
+
+    #  - name: Upload bundle + manifest (SFTP)
+     #   uses: wlixcc/SFTP-Deploy-Action@v1.2.4
+      #  with:
+        #  server: ${{ secrets.SFTP_HOST }}
+        #  username: ${{ secrets.SFTP_USER }}
+        #  password: ${{ secrets.SFTP_PASS }}
+         # local_path: |
+         #   web-bundle-${{ github.run_number }}.zip
+          #  version.json
+          #remote_path: /public_html/dispatch/app/
+      # --- einde update snippet ---
+
+      # Assets genereren op basis van /resources/icon.png en /resources/splash.png
       - name: Generate icons & splash (Android)
         run: |
           npx --yes @capacitor/assets@2 generate --android
-      # 🔼🔼🔼
 
       - name: Add/Sync Android (Capacitor CLI via npx)
         run: |
