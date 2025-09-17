@@ -22,17 +22,15 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-          
+
       - name: Ensure plugin deps present (before install)
         run: |
           npm pkg set dependencies["@capacitor/app"]="^5.0.0"
           npm pkg set dependencies["@capacitor/browser"]="^5.0.0"
           npm pkg set dependencies["@capacitor/geolocation"]="^5.0.0"
           npm pkg set dependencies["@capacitor/local-notifications"]="^5.0.0"
-          npm pkg set dependencies["@capacitor-community/background-geolocation"]="1.2.4"
-          npm pkg set dependencies["@capacitor-community/keep-awake"]="4.0.0"
           npm pkg set dependencies["@capgo/capacitor-updater"]="^5"
-
+          npm pkg set dependencies["@capacitor-community/background-geolocation"]="1.2.4"
 
       - name: Install deps
         run: npm install
@@ -40,7 +38,6 @@ jobs:
       - name: Build web
         run: npm run build
 
-      # --- Update snippet: zip dist + manifest schrijven + upload ---
       - name: Zip web bundle
         run: |
           cd dist
@@ -58,19 +55,23 @@ jobs:
           }
           EOF
 
-    #  - name: Upload bundle + manifest (SFTP)
-     #   uses: wlixcc/SFTP-Deploy-Action@v1.2.4
-      #  with:
-        #  server: ${{ secrets.SFTP_HOST }}
-        #  username: ${{ secrets.SFTP_USER }}
-        #  password: ${{ secrets.SFTP_PASS }}
-         # local_path: |
-         #   web-bundle-${{ github.run_number }}.zip
-          #  version.json
-          #remote_path: /public_html/dispatch/app/
-      # --- einde update snippet ---
+      - name: Prepare deploy folder
+        run: |
+          rm -rf deploy && mkdir deploy
+          mv web-bundle-${{ github.run_number }}.zip deploy/
+          mv version.json deploy/
 
-      # Assets genereren op basis van /resources/icon.png en /resources/splash.png
+      - name: Upload bundle + manifest (FTPS to Hostinger)
+        uses: SamKirkland/FTP-Deploy-Action@v4
+        with:
+          server: 185.224.138.88
+          username: u642982818.jeroencooremans.com
+          password: Tasme2589Ta7xntkp!
+          protocol: ftps
+          port: 21
+          local-dir: deploy
+          server-dir: public_html/dispatch/app/
+
       - name: Generate icons & splash (Android)
         run: |
           npx --yes @capacitor/assets@2 generate --android
@@ -87,7 +88,7 @@ jobs:
           add_perm() {
             local P="$1"
             if ! grep -q "android.permission.${P}" "$FILE"; then
-              sed -i "s#</manifest>#  <uses-permission android:name=\"android.permission.${P}\" />\\n</manifest>#g" "$FILE"
+              sed -i "s#</manifest>#  <uses-permission android:name=\"android.permission.${P}\" />\n</manifest>#g" "$FILE"
             fi
           }
           add_perm INTERNET
@@ -100,7 +101,6 @@ jobs:
           add_perm POST_NOTIFICATIONS
           add_perm RECEIVE_BOOT_COMPLETED
 
-      # Fix voor BG-plugin (AGP 8): BuildConfig stubs
       - name: Patch BG plugin BuildConfig stubs
         shell: bash
         run: |
