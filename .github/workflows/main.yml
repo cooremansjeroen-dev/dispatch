@@ -31,6 +31,9 @@ jobs:
           npm pkg set dependencies["@capacitor/local-notifications"]="^5.0.0"
           npm pkg set dependencies["@capgo/capacitor-updater"]="^5"
           npm pkg set dependencies["@capacitor-community/background-geolocation"]="1.2.4"
+          npm pkg delete dependencies["@capacitor-community/keep-awake"] || true
+          rm -f package-lock.json
+
 
       - name: Install deps
         run: npm install
