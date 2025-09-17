@@ -23,6 +23,7 @@ jobs:
           distribution: temurin
           java-version: '17'
 
+      # Dependencies vóór npm install (Capacitor 5 + Capgo Updater)
       - name: Ensure plugin deps present (before install)
         run: |
           npm pkg set dependencies["@capacitor/app"]="^5.0.0"
@@ -34,22 +35,23 @@ jobs:
           npm pkg delete dependencies["@capacitor-community/keep-awake"] || true
           rm -f package-lock.json
 
-
       - name: Install deps
         run: npm install
 
       - name: Build web
         run: npm run build
 
+      # Zip web bundle (inhoud van dist/)
       - name: Zip web bundle
         run: |
           cd dist
           zip -r ../web-bundle-${{ github.run_number }}.zip .
           cd ..
 
+      # Manifest voor auto-updater
       - name: Write version.json
         run: |
-          cat > version.json <<EOF
+          cat > version.json <<'EOF'
           {
             "bundleVersion": "${{ github.run_number }}",
             "bundleUrl": "https://jeroencooremans.com/dispatch/app/web-bundle-${{ github.run_number }}.zip",
@@ -58,67 +60,42 @@ jobs:
           }
           EOF
 
+      # Mapje met enkel de te deployen bestanden
       - name: Prepare deploy folder
         run: |
           rm -rf deploy && mkdir deploy
           mv web-bundle-${{ github.run_number }}.zip deploy/
           mv version.json deploy/
 
-            # --- DEBUG: toon waar je FTP-root écht staat ---
-            
-      - name: Debug FTPS root listing
+      # FTPS upload naar exact pad op Hostinger via cURL (geen action nodig)
+      - name: Upload bundle + manifest (FTPS absolute path)
         run: |
-          set -x
-          echo "== LIST / =="
-          curl -v --ftp-ssl --user "u642982818.ftpdisp:Tasme2589Ta7xntkp!" \
-            "ftp://185.224.138.88/" --disable-epsv --ftp-method nocwd --list-only || true
+          set -e
+          RUN=${{ github.run_number }}
+          ZIP="web-bundle-${RUN}.zip"
 
-          echo "== LIST /public_html =="
-          curl -v --ftp-ssl --user "u642982818.ftpdisp:Tasme2589Ta7xntkp!" \
-            "ftp://185.224.138.88/public_html/" --disable-epsv --ftp-method nocwd --list-only || true
+          # Upload ZIP
+          curl --ftp-ssl --disable-epsv --ftp-create-dirs \
+               --user "u642982818.ftpdisp:Tasme2589Ta7xntkp!" \
+               -T "deploy/${ZIP}" \
+               "ftp://185.224.138.88/domains/jeroencooremans.com/public_html/dispatch/app/${ZIP}"
 
-          echo "== LIST /domains =="
-          curl -v --ftp-ssl --user "u642982818.ftpdisp:Tasme2589Ta7xntkp!" \
-            "ftp://185.224.138.88/domains/" --disable-epsv --ftp-method nocwd --list-only || true
+          # Upload version.json
+          curl --ftp-ssl --disable-epsv --ftp-create-dirs \
+               --user "u642982818.ftpdisp:Tasme2589Ta7xntkp!" \
+               -T "deploy/version.json" \
+               "ftp://185.224.138.88/domains/jeroencooremans.com/public_html/dispatch/app/version.json"
 
-          echo "== LIST /domains/jeroencooremans.com/public_html =="
-          curl -v --ftp-ssl --user "u642982818.ftpdisp:Tasme2589Ta7xntkp!" \
-            "ftp://185.224.138.88/domains/jeroencooremans.com/public_html/" --disable-epsv --ftp-method nocwd --list-only || true
+      # Controleer publiek bereikbare URLs (optioneel maar handig)
+      - name: Verify public URLs
+        run: |
+          set -e
+          curl -fSL "https://jeroencooremans.com/dispatch/app/version.json" -o /dev/null
+          echo "version.json OK"
+          curl -fSL "https://jeroencooremans.com/dispatch/app/web-bundle-${{ github.run_number }}.zip" -o /dev/null
+          echo "bundle ZIP OK"
 
-          echo "== LIST /domains/jeroencooremans.com/public_html/dispatch =="
-          curl -v --ftp-ssl --user "u642982818.ftpdisp:Tasme2589Ta7xntkp!" \
-            "ftp://185.224.138.88/domains/jeroencooremans.com/public_html/dispatch/" --disable-epsv --ftp-method nocwd --list-only || true
-
-      # --- UPLOAD: kies exact één van de 2 server-dir varianten hieronder ---
-
-      # Variant A) Als de FTP-home == /domains/jeroencooremans.com/public_html/
-      # -> upload naar dispatch/app/ onder public_html
-      # - name: Upload bundle + manifest (FTPS to Hostinger)
-      #   uses: SamKirkland/FTP-Deploy-Action@v4.3.5
-      #   with:
-      #     server: 185.224.138.88
-      #     username: u642982818.ftpdisp
-      #     password: Tasme2589Ta7xntkp!
-      #     protocol: ftps
-      #     port: 21
-      #     local-dir: deploy/
-      #     server-dir: dispatch/app/
-
-      # Variant B) Als de FTP-home == /domains/jeroencooremans.com/public_html/dispatch/
-      # -> upload alleen naar app/
-      - name: Upload bundle + manifest (FTPS to Hostinger)
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
-        with:
-          server: 185.224.138.88
-          username: u642982818.ftpdisp
-          password: Tasme2589Ta7xntkp!
-          protocol: ftps
-          port: 21
-          local-dir: deploy/
-          server-dir: app/
-
-
-
+      # Icons & splash genereren (zorg dat resources/icon.png en resources/splash.png bestaan)
       - name: Generate icons & splash (Android)
         run: |
           npx --yes @capacitor/assets@2 generate --android
@@ -135,7 +112,7 @@ jobs:
           add_perm() {
             local P="$1"
             if ! grep -q "android.permission.${P}" "$FILE"; then
-              sed -i "s#</manifest>#  <uses-permission android:name=\"android.permission.${P}\" />\n</manifest>#g" "$FILE"
+              sed -i "s#</manifest>#  <uses-permission android:name=\"android.permission.${P}\" />\\n</manifest>#g" "$FILE"
             fi
           }
           add_perm INTERNET
@@ -148,6 +125,7 @@ jobs:
           add_perm POST_NOTIFICATIONS
           add_perm RECEIVE_BOOT_COMPLETED
 
+      # Fix voor BG-plugin (AGP 8): BuildConfig stubs
       - name: Patch BG plugin BuildConfig stubs
         shell: bash
         run: |
