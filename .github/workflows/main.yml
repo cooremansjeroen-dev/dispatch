@@ -41,14 +41,12 @@ jobs:
       - name: Build web
         run: npm run build
 
-      # Zip de inhoud van dist/
       - name: Zip web bundle
         run: |
           cd dist
           zip -r ../web-bundle-${{ github.run_number }}.zip .
           cd ..
 
-      # Manifest voor de auto-updater
       - name: Write version.json
         run: |
           cat > version.json <<'EOF'
@@ -66,11 +64,11 @@ jobs:
           mv web-bundle-${{ github.run_number }}.zip deploy/
           mv version.json deploy/
 
-      # ---- UPLOAD: gewone FTP naar /domains/.../public_html/dispatch/app ----
-      - name: Upload bundle + manifest (FTP absolute path)
+      # ---- UPLOAD: FTP naar /app (RELATIEF t.o.v. FTP-home van dit account) ----
+      - name: Upload bundle + manifest (FTP relative to home)
         shell: bash
         env:
-          FTP_HOST: jeroencooremans.com            # géén ftp:// ervoor
+          FTP_HOST: jeroencooremans.com     # geen "ftp://"
           FTP_USER: u642982818.ftpdisp
           FTP_PASS: teveranderen
         run: |
@@ -78,15 +76,16 @@ jobs:
           RUN=${{ github.run_number }}
           ZIP="web-bundle-${RUN}.zip"
 
-          # Let op: dubbele slash // forceert een absoluut pad op de server
-          BASE_URL="ftp://${FTP_USER}:${FTP_PASS}@${FTP_HOST}//domains/jeroencooremans.com/public_html/dispatch/app"
+          # RELATIEF pad t.o.v. de FTP-home (jouw user landt in /public_html/dispatch/)
+          BASE_URL="ftp://${FTP_USER}:${FTP_PASS}@${FTP_HOST}/app"
 
-          echo "Uploading ${ZIP} -> ${BASE_URL}/"
+          echo "Creating app/ (if needed) and uploading files…"
+          # Upload ZIP
           curl --disable-epsv --ftp-create-dirs \
                -T "deploy/${ZIP}" \
                "${BASE_URL}/${ZIP}"
 
-          echo "Uploading version.json -> ${BASE_URL}/"
+          # Upload version.json
           curl --disable-epsv --ftp-create-dirs \
                -T "deploy/version.json" \
                "${BASE_URL}/version.json"
