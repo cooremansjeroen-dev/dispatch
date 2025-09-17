@@ -70,7 +70,7 @@ jobs:
         env:
           FTP_HOST: jeroencooremans.com     # geen "ftp://"
           FTP_USER: u642982818.ftpdisp
-          FTP_PASS: teveranderen
+          FTP_PASS: Tasme2589Ta7xntkp!
         run: |
           set -e
           RUN=${{ github.run_number }}
