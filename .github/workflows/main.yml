@@ -29,9 +29,10 @@ jobs:
           npm pkg set dependencies["@capacitor/browser"]="^5.0.0"
           npm pkg set dependencies["@capacitor/geolocation"]="^5.0.0"
           npm pkg set dependencies["@capacitor/local-notifications"]="^5.0.0"
-          npm pkg set dependencies["@capawesome-team/capacitor-updater"]="^5.0.0"
           npm pkg set dependencies["@capacitor-community/background-geolocation"]="1.2.4"
           npm pkg set dependencies["@capacitor-community/keep-awake"]="4.0.0"
+          npm pkg set dependencies["@capgo/capacitor-updater"]="^5"
+
 
       - name: Install deps
         run: npm install
