@@ -3,8 +3,21 @@ import { registerPlugin } from '@capacitor/core';
 import { Geolocation } from '@capacitor/geolocation';
 import { App } from '@capacitor/app';
 import { Browser } from '@capacitor/browser';
-import { Updater } from '@capgo/capacitor-updater';
+
 import { ENDPOINT_BASE, DEFAULT_TEAM, DEFAULT_INCIDENT_ID } from './config';
+
+import { registerPlugin } from '@capacitor/core';
+// ... (je andere imports blijven staan)
+
+// Capgo Updater via registerPlugin (compat met verschillende API-namen)
+const Updater = registerPlugin<{
+  download(options: { url: string; version: string }): Promise<void>;
+  set(options: { version: string }): Promise<void>;
+  reload(): Promise<void>;
+  getCurrentBundleInfo?(): Promise<{ version?: string }>; // sommige versies
+  current?(): Promise<{ version?: string }>;              // andere versies
+}>('Updater');
+
 
 // --------- Plugins (via registerPlugin om Vite-resolve issues te vermijden) ----------
 interface BGPerm { location: 'granted' | 'denied' | 'prompt'; }
@@ -70,7 +83,15 @@ async function checkForUpdates() {
     const manifest = await resp.json();
 
     const appInfo = await App.getInfo();
-    const current = await Updater.getCurrentBundleInfo().catch(() => null);
+    let current: any = null;
+try {
+  if (Updater.getCurrentBundleInfo) {
+    current = await Updater.getCurrentBundleInfo();
+  } else if (Updater.current) {
+    current = await Updater.current();
+  }
+} catch {}
+
     console.log('[Updater] current bundle:', current?.version, 'native:', appInfo.version);
     console.log('[Updater] manifest:', manifest);
 
