@@ -77,7 +77,7 @@ jobs:
           ZIP="web-bundle-${RUN}.zip"
 
           # RELATIEF pad t.o.v. de FTP-home (jouw user landt in /public_html/dispatch/)
-          BASE_URL="ftp://${FTP_USER}:${FTP_PASS}@${FTP_HOST}/app"
+          BASE_URL="ftp://${FTP_USER}:${FTP_PASS}@${FTP_HOST}/dispatch/app"
 
           echo "Creating app/ (if needed) and uploading files…"
           # Upload ZIP
