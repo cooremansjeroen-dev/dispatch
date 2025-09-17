@@ -74,7 +74,7 @@ jobs:
           RUN=${{ github.run_number }}
           ZIP="web-bundle-${RUN}.zip"
           # LET OP: dubbele slash // na host = absoluut pad
-          BASE_URL="ftp://${FTP_HOST}//jeroencooremans.com/public_html/dispatch/app"
+          BASE_URL="ftp:${FTP_HOST}//jeroencooremans.com/public_html/dispatch/app"
 
           echo "Uploading ${ZIP} to ${BASE_URL}/ ..."
           curl --ssl-reqd --disable-epsv --ftp-create-dirs \
