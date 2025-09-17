@@ -64,6 +64,48 @@ jobs:
           mv web-bundle-${{ github.run_number }}.zip deploy/
           mv version.json deploy/
 
+            # --- DEBUG: toon waar je FTP-root écht staat ---
+            
+      - name: Debug FTPS root listing
+        run: |
+          set -x
+          echo "== LIST / =="
+          curl -v --ftp-ssl --user "u642982818.ftpdisp:Tasme2589Ta7xntkp!" \
+            "ftp://185.224.138.88/" --disable-epsv --ftp-method nocwd --list-only || true
+
+          echo "== LIST /public_html =="
+          curl -v --ftp-ssl --user "u642982818.ftpdisp:Tasme2589Ta7xntkp!" \
+            "ftp://185.224.138.88/public_html/" --disable-epsv --ftp-method nocwd --list-only || true
+
+          echo "== LIST /domains =="
+          curl -v --ftp-ssl --user "u642982818.ftpdisp:Tasme2589Ta7xntkp!" \
+            "ftp://185.224.138.88/domains/" --disable-epsv --ftp-method nocwd --list-only || true
+
+          echo "== LIST /domains/jeroencooremans.com/public_html =="
+          curl -v --ftp-ssl --user "u642982818.ftpdisp:Tasme2589Ta7xntkp!" \
+            "ftp://185.224.138.88/domains/jeroencooremans.com/public_html/" --disable-epsv --ftp-method nocwd --list-only || true
+
+          echo "== LIST /domains/jeroencooremans.com/public_html/dispatch =="
+          curl -v --ftp-ssl --user "u642982818.ftpdisp:Tasme2589Ta7xntkp!" \
+            "ftp://185.224.138.88/domains/jeroencooremans.com/public_html/dispatch/" --disable-epsv --ftp-method nocwd --list-only || true
+
+      # --- UPLOAD: kies exact één van de 2 server-dir varianten hieronder ---
+
+      # Variant A) Als de FTP-home == /domains/jeroencooremans.com/public_html/
+      # -> upload naar dispatch/app/ onder public_html
+      # - name: Upload bundle + manifest (FTPS to Hostinger)
+      #   uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+      #   with:
+      #     server: 185.224.138.88
+      #     username: u642982818.ftpdisp
+      #     password: Tasme2589Ta7xntkp!
+      #     protocol: ftps
+      #     port: 21
+      #     local-dir: deploy/
+      #     server-dir: dispatch/app/
+
+      # Variant B) Als de FTP-home == /domains/jeroencooremans.com/public_html/dispatch/
+      # -> upload alleen naar app/
       - name: Upload bundle + manifest (FTPS to Hostinger)
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
@@ -74,6 +116,7 @@ jobs:
           port: 21
           local-dir: deploy/
           server-dir: app/
+
 
 
       - name: Generate icons & splash (Android)
