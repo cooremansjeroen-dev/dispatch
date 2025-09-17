@@ -68,7 +68,7 @@ jobs:
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
           server: 185.224.138.88
-          username: u642982818.jeroencooremans.com
+          username: u642982818.ftpdisp
           password: Tasme2589Ta7xntkp!
           protocol: ftps
           port: 21
