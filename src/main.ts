@@ -1,53 +1,22 @@
 // src/main.ts
-const DISABLE_OTA_ONCE = true; // <<< tijdelijk
 
-async function start(){
-  if (!DISABLE_OTA_ONCE) {
-    await checkForUpdates();   // OTA ophalen + Updater.reload()
-  }
-  await ensureBackgroundOK();
-  startForegroundFallback();
-  if (!watcherId) await startWatcher();
-  await testPing();
-  (document.getElementById('toggleBtn') as HTMLButtonElement)?.textContent = 'Stop';
-  await showBuildInfo();
-}
-
+// ---- IMPORTS (altijd bovenaan) ----
 import { registerPlugin } from '@capacitor/core';
 import { Geolocation } from '@capacitor/geolocation';
 import { App } from '@capacitor/app';
 import { Browser } from '@capacitor/browser';
-
 import { ENDPOINT_BASE, DEFAULT_TEAM, DEFAULT_INCIDENT_ID } from './config';
 
-import { registerPlugin } from '@capacitor/core';
-// ... (je andere imports blijven staan)
-
-async function showBuildInfo() {
-  const appInfo = await App.getInfo();
-  let current: any = null;
-  try {
-    // capgo plugin varieert per versie:
-    if ((Updater as any).getCurrentBundleInfo) current = await (Updater as any).getCurrentBundleInfo();
-    else if ((Updater as any).current)         current = await (Updater as any).current();
-  } catch {}
-  const el = document.getElementById('build');
-  if (el) el.textContent = `native ${appInfo.version} | bundle ${current?.version || 'embedded'}`;
-}
-document.addEventListener('DOMContentLoaded', showBuildInfo);
-
-
-// Capgo Updater via registerPlugin (compat met verschillende API-namen)
+// ---- Capgo Updater (via registerPlugin; compat met verschillende API-namen) ----
 const Updater = registerPlugin<{
   download(options: { url: string; version: string }): Promise<void>;
   set(options: { version: string }): Promise<void>;
   reload(): Promise<void>;
-  getCurrentBundleInfo?(): Promise<{ version?: string }>; // sommige versies
-  current?(): Promise<{ version?: string }>;              // andere versies
+  getCurrentBundleInfo?(): Promise<{ version?: string }>;
+  current?(): Promise<{ version?: string }>;
 }>('Updater');
 
-
-// --------- Plugins (via registerPlugin om Vite-resolve issues te vermijden) ----------
+// ---- Background Geolocation (community) ----
 interface BGPerm { location: 'granted' | 'denied' | 'prompt'; }
 interface BGOptions {
   requestPermissions?: boolean; stale?: boolean;
@@ -64,11 +33,14 @@ interface BackgroundGeolocationPlugin {
 }
 const BackgroundGeolocation = registerPlugin<BackgroundGeolocationPlugin>('BackgroundGeolocation');
 
-interface LocalNotificationsPlugin { requestPermissions(): Promise<{ display: 'granted' | 'denied' }>; }
+// ---- Local Notifications (runtime toestemming Android 13+) ----
+interface LocalNotificationsPlugin { requestPermissions(): Promise<{ display: 'granted'|'denied' }>; }
 const LocalNotifications = registerPlugin<LocalNotificationsPlugin>('LocalNotifications');
 
-// --------- Kleine helpers ----------
+// ---- Globale helpers/variabelen ----
+const DISABLE_OTA_ONCE = true; // zet tijdelijk op true om embedded assets te forceren
 const $ = (q: string) => document.querySelector(q) as HTMLElement | null;
+
 let watcherId: string | null = null;
 let fgTimer: any = null;
 let team = DEFAULT_TEAM;
@@ -92,7 +64,19 @@ async function ensureBackgroundOK() {
   } catch {}
 }
 
-// --------- OTA update (Capgo) ----------
+// ---- Build-info tonen (native + huidige bundle) ----
+async function showBuildInfo() {
+  const appInfo = await App.getInfo();
+  let current: any = null;
+  try {
+    if ((Updater as any).getCurrentBundleInfo) current = await (Updater as any).getCurrentBundleInfo();
+    else if ((Updater as any).current)         current = await (Updater as any).current();
+  } catch {}
+  const el = document.getElementById('build');
+  if (el) el.textContent = `native ${appInfo.version} | bundle ${current?.version ?? 'embedded'}`;
+}
+
+// ---- OTA update (Capgo) ----
 function cmpSemver(a: string, b: string): number {
   const pa = a.split('.').map(n => parseInt(n, 10) || 0);
   const pb = b.split('.').map(n => parseInt(n, 10) || 0);
@@ -105,39 +89,32 @@ function cmpSemver(a: string, b: string): number {
 
 async function checkForUpdates() {
   try {
-    const url = `${ENDPOINT_BASE}/app/version.json?ts=${Date.now()}`;
-    const resp = await fetch(url, { cache: 'no-store' });
-    if (!resp.ok) throw new Error('manifest http ' + resp.status);
+    const resp = await fetch(`${ENDPOINT_BASE}/app/version.json?ts=${Date.now()}`, { cache: 'no-store' });
+    if (!resp.ok) throw new Error('manifest http '+resp.status);
     const manifest = await resp.json();
 
     const appInfo = await App.getInfo();
     let current: any = null;
-try {
-  if (Updater.getCurrentBundleInfo) {
-    current = await Updater.getCurrentBundleInfo();
-  } else if (Updater.current) {
-    current = await Updater.current();
-  }
-} catch {}
+    try {
+      if ((Updater as any).getCurrentBundleInfo) current = await (Updater as any).getCurrentBundleInfo();
+      else if ((Updater as any).current)         current = await (Updater as any).current();
+    } catch {}
 
     console.log('[Updater] current bundle:', current?.version, 'native:', appInfo.version);
     console.log('[Updater] manifest:', manifest);
 
-    // Minimale native app-versie afdwingen (optioneel)
     if (manifest.minNativeVersion && cmpSemver(appInfo.version, manifest.minNativeVersion) < 0) {
       setStatus(`Nieuwe app versie vereist (min. ${manifest.minNativeVersion})`);
       if (manifest.apkUrl) await Browser.open({ url: manifest.apkUrl });
       return;
     }
 
-    // Nieuwe web bundle?
     if (manifest.bundleVersion && manifest.bundleUrl && current?.version !== manifest.bundleVersion) {
       setStatus(`Update v${manifest.bundleVersion} downloaden…`);
       await Updater.download({ url: manifest.bundleUrl, version: manifest.bundleVersion });
       await Updater.set({ version: manifest.bundleVersion });
-      // >>> Laad onmiddellijk de nieuwe bundle
-      await Updater.reload();
-      return; // reload herstart de webview, code hieronder wordt niet meer uitgevoerd
+      await Updater.reload(); // << meteen de nieuwe bundle laden
+      return;
     }
 
     setStatus('App is up-to-date');
@@ -147,10 +124,10 @@ try {
   }
 }
 
-// --------- Tracking POST ----------
+// ---- Tracking POST ----
 async function postLocation(lat: number, lon: number) {
   const url = `${ENDPOINT_BASE}/api/track.php`;
-  // 1) Probeer FormData
+  // FormData eerst
   try {
     const fd = new FormData();
     fd.append('team', team || 'ploeg-1');
@@ -163,10 +140,10 @@ async function postLocation(lat: number, lon: number) {
     console.log('[POST ok]', txt);
     setStatus('POST ok');
     return;
-  } catch (e: any) {
+  } catch (e) {
     console.warn('[POST error FormData]', e);
   }
-  // 2) Fallback JSON
+  // JSON fallback
   try {
     const r2 = await fetch(url, {
       method: 'POST',
@@ -183,11 +160,14 @@ async function postLocation(lat: number, lon: number) {
   }
 }
 
-// Eénmalige sanity test
+// ---- Test (1× POST + 1× GET) ----
 async function testPing() {
   try { await postLocation(51.2194, 4.4025); } catch {}
   try {
-    const r = await fetch(`${ENDPOINT_BASE}/api/track.php?team=${encodeURIComponent(team || 'ploeg-1')}&lat=51.2194&lon=4.4025`, { cache: 'no-store' });
+    const r = await fetch(
+      `${ENDPOINT_BASE}/api/track.php?team=${encodeURIComponent(team || 'ploeg-1')}&lat=51.2194&lon=4.4025`,
+      { cache: 'no-store' }
+    );
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
     setStatus(((($('#status') as HTMLParagraphElement | null)?.textContent) || '') + ' | GET ok');
   } catch (e: any) {
@@ -195,7 +175,7 @@ async function testPing() {
   }
 }
 
-// --------- Foreground fallback (10s) ----------
+// ---- Foreground fallback (10s) ----
 function startForegroundFallback() {
   if (fgTimer) return;
   fgTimer = setInterval(async () => {
@@ -210,7 +190,7 @@ function startForegroundFallback() {
 }
 function stopForegroundFallback() { if (fgTimer) { clearInterval(fgTimer); fgTimer = null; } }
 
-// --------- Background watcher ----------
+// ---- Background watcher ----
 async function startWatcher() {
   try {
     const perm = await BackgroundGeolocation.requestPermissions();
@@ -248,21 +228,24 @@ async function stopWatcher() {
   }
 }
 
-// --------- UI: start/stop + team/incident ----------
+// ---- UI: start/stop + team/incident ----
 async function start() {
-  await checkForUpdates();               // haalt nieuwe bundle op en reloadt zo nodig
-  await ensureBackgroundOK();            // vraag perms
-  startForegroundFallback();             // foreground fallback
-  if (!watcherId) await startWatcher();  // echte BG-tracking
-  await testPing();                      // 1× POST + 1× GET
-  const btn = $('#toggleBtn') as HTMLButtonElement | null;
-  if (btn) btn.textContent = 'Stop';
+  if (!DISABLE_OTA_ONCE) {
+    await checkForUpdates(); // haalt evt. bundle en doet Updater.reload()
+  }
+  await ensureBackgroundOK();
+  startForegroundFallback();
+  if (!watcherId) await startWatcher();
+  await testPing();
+  const btn = document.getElementById('toggleBtn') as HTMLButtonElement | null;
+  if (btn) btn.textContent = 'Start'; // of 'Stop' afhankelijk van jouw UX
+  await showBuildInfo();
 }
 async function stop() {
   stopForegroundFallback();
   await stopWatcher();
   setStatus('Tracking gestopt.');
-  const btn = $('#toggleBtn') as HTMLButtonElement | null;
+  const btn = document.getElementById('toggleBtn') as HTMLButtonElement | null;
   if (btn) btn.textContent = 'Start';
 }
 
@@ -275,14 +258,15 @@ function bindUI() {
   (window as any).toggle = async () => {
     team = (teamEl?.value || '').trim() || 'ploeg-1';
     incidentId = (incEl?.value || '').trim();
-    const btn = $('#toggleBtn') as HTMLButtonElement | null;
+    const btn = document.getElementById('toggleBtn') as HTMLButtonElement | null;
     if (!btn || btn.textContent === 'Start') await start();
     else await stop();
   };
 }
 document.addEventListener('DOMContentLoaded', bindUI);
+document.addEventListener('DOMContentLoaded', showBuildInfo);
 
-// --------- MENU + KAART ----------
+// ---- MENU + KAART ----
 function setActive(tab: 'track' | 'map') {
   const aTrack = $('#nav-track'); const aMap = $('#nav-map');
   if (aTrack) aTrack.classList.toggle('active', tab === 'track');
