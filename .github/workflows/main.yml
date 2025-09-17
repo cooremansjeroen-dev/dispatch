@@ -69,7 +69,7 @@ jobs:
         shell: bash
         env:
           FTP_HOST: jeroencooremans.com     # geen "ftp://"
-          FTP_USER: u642982818.ftpdisp
+          FTP_USER: u642982818.jeroencooremans.com
           FTP_PASS: Tasme2589Ta7xntkp!
         run: |
           set -e
