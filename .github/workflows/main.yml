@@ -23,6 +23,7 @@ jobs:
           distribution: temurin
           java-version: '17'
 
+      # Zorg dat plugins aanwezig zijn vóór npm install
       - name: Ensure plugin deps present (before install)
         run: |
           npm pkg set dependencies["@capacitor/app"]="^5.0.0"
@@ -40,12 +41,14 @@ jobs:
       - name: Build web
         run: npm run build
 
+      # Zip de inhoud van dist/
       - name: Zip web bundle
         run: |
           cd dist
           zip -r ../web-bundle-${{ github.run_number }}.zip .
           cd ..
 
+      # Manifest voor de auto-updater
       - name: Write version.json
         run: |
           cat > version.json <<'EOF'
@@ -63,32 +66,42 @@ jobs:
           mv web-bundle-${{ github.run_number }}.zip deploy/
           mv version.json deploy/
 
-      # FTPS upload via cURL met absoluut pad (let op: // na host)
+      # FTPS upload via cURL naar exact pad (let op dubbele slash // na host = absoluut pad)
       - name: Upload bundle + manifest (FTPS absolute path)
         env:
-          FTP_HOST: ${{ secrets.FTP_HOST }}
-          FTP_USER: ${{ secrets.FTP_USER }}
-          FTP_PASS: ${{ secrets.FTP_PASS }}
+          FTP_HOST: ftp.jeroencooremans.com   # bv. ftp.hostinger.com of ftp.jeroencooremans.com
+          FTP_USER: u642982818.ftpdisp
+          FTP_PASS: Tasme2589Ta7xntkp!
         run: |
           set -e
+          if [ -z "${FTP_HOST}" ]; then
+            echo "FTP_HOST secret is leeg. Zet Secrets: FTP_HOST / FTP_USER / FTP_PASS."; exit 1
+          fi
           RUN=${{ github.run_number }}
           ZIP="web-bundle-${RUN}.zip"
-          # LET OP: dubbele slash // na host = absoluut pad
-          BASE_URL="ftp:${FTP_HOST}//jeroencooremans.com/public_html/dispatch/app"
 
-          echo "Uploading ${ZIP} to ${BASE_URL}/ ..."
-          curl --ssl-reqd --disable-epsv --ftp-create-dirs \
+          # Als FTP_HOST een IP is -> TLS hostnaam-check uitschakelen (niet ideaal, maar werkt)
+          INSEC=""
+          if [[ "${FTP_HOST}" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            INSEC="--insecure"
+            echo "FTP_HOST lijkt een IP; gebruik --insecure."
+          fi
+
+          BASE_URL="ftp://${FTP_HOST}//domains/jeroencooremans.com/public_html/dispatch/app"
+
+          echo "Uploading ${ZIP} -> ${BASE_URL}/"
+          curl --ssl-reqd --disable-epsv --ftp-create-dirs ${INSEC} \
                -u "${FTP_USER}:${FTP_PASS}" \
                -T "deploy/${ZIP}" \
                "${BASE_URL}/${ZIP}"
 
-          echo "Uploading version.json to ${BASE_URL}/ ..."
-          curl --ssl-reqd --disable-epsv --ftp-create-dirs \
+          echo "Uploading version.json -> ${BASE_URL}/"
+          curl --ssl-reqd --disable-epsv --ftp-create-dirs ${INSEC} \
                -u "${FTP_USER}:${FTP_PASS}" \
                -T "deploy/version.json" \
                "${BASE_URL}/version.json"
 
-      # (Optioneel) verifieer publieke URLs
+      # (Optioneel) Publieke URL-check
       - name: Verify public URLs
         run: |
           set -e
@@ -97,6 +110,7 @@ jobs:
           curl -fSL "https://jeroencooremans.com/dispatch/app/web-bundle-${{ github.run_number }}.zip" -o /dev/null
           echo "bundle ZIP OK"
 
+      # App-icons & splash genereren uit /resources/icon.png en /resources/splash.png
       - name: Generate icons & splash (Android)
         run: |
           npx --yes @capacitor/assets@2 generate --android
@@ -126,6 +140,7 @@ jobs:
           add_perm POST_NOTIFICATIONS
           add_perm RECEIVE_BOOT_COMPLETED
 
+      # Fix voor BG-plugin (AGP 8): BuildConfig stubs
       - name: Patch BG plugin BuildConfig stubs
         shell: bash
         run: |
