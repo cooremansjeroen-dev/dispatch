@@ -23,7 +23,6 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      # Dependencies vóór npm install (Capacitor 5 + Capgo Updater)
       - name: Ensure plugin deps present (before install)
         run: |
           npm pkg set dependencies["@capacitor/app"]="^5.0.0"
@@ -41,14 +40,12 @@ jobs:
       - name: Build web
         run: npm run build
 
-      # Zip web bundle (inhoud van dist/)
       - name: Zip web bundle
         run: |
           cd dist
           zip -r ../web-bundle-${{ github.run_number }}.zip .
           cd ..
 
-      # Manifest voor auto-updater
       - name: Write version.json
         run: |
           cat > version.json <<'EOF'
@@ -60,33 +57,38 @@ jobs:
           }
           EOF
 
-      # Mapje met enkel de te deployen bestanden
       - name: Prepare deploy folder
         run: |
           rm -rf deploy && mkdir deploy
           mv web-bundle-${{ github.run_number }}.zip deploy/
           mv version.json deploy/
 
-      # FTPS upload naar exact pad op Hostinger via cURL (geen action nodig)
+      # FTPS upload via cURL met absoluut pad (let op: // na host)
       - name: Upload bundle + manifest (FTPS absolute path)
+        env:
+          FTP_HOST: ${{ secrets.FTP_HOST }}
+          FTP_USER: ${{ secrets.FTP_USER }}
+          FTP_PASS: ${{ secrets.FTP_PASS }}
         run: |
           set -e
           RUN=${{ github.run_number }}
           ZIP="web-bundle-${RUN}.zip"
+          # LET OP: dubbele slash // na host = absoluut pad
+          BASE_URL="ftp://${FTP_HOST}//domains/jeroencooremans.com/public_html/dispatch/app"
 
-          # Upload ZIP
-          curl --ftp-ssl --disable-epsv --ftp-create-dirs \
-               --user "u642982818.ftpdisp:Tasme2589Ta7xntkp!" \
+          echo "Uploading ${ZIP} to ${BASE_URL}/ ..."
+          curl --ssl-reqd --disable-epsv --ftp-create-dirs \
+               -u "${FTP_USER}:${FTP_PASS}" \
                -T "deploy/${ZIP}" \
-               "ftp://185.224.138.88/domains/jeroencooremans.com/public_html/dispatch/app/${ZIP}"
+               "${BASE_URL}/${ZIP}"
 
-          # Upload version.json
-          curl --ftp-ssl --disable-epsv --ftp-create-dirs \
-               --user "u642982818.ftpdisp:Tasme2589Ta7xntkp!" \
+          echo "Uploading version.json to ${BASE_URL}/ ..."
+          curl --ssl-reqd --disable-epsv --ftp-create-dirs \
+               -u "${FTP_USER}:${FTP_PASS}" \
                -T "deploy/version.json" \
-               "ftp://185.224.138.88/domains/jeroencooremans.com/public_html/dispatch/app/version.json"
+               "${BASE_URL}/version.json"
 
-      # Controleer publiek bereikbare URLs (optioneel maar handig)
+      # (Optioneel) verifieer publieke URLs
       - name: Verify public URLs
         run: |
           set -e
@@ -95,7 +97,6 @@ jobs:
           curl -fSL "https://jeroencooremans.com/dispatch/app/web-bundle-${{ github.run_number }}.zip" -o /dev/null
           echo "bundle ZIP OK"
 
-      # Icons & splash genereren (zorg dat resources/icon.png en resources/splash.png bestaan)
       - name: Generate icons & splash (Android)
         run: |
           npx --yes @capacitor/assets@2 generate --android
@@ -125,7 +126,6 @@ jobs:
           add_perm POST_NOTIFICATIONS
           add_perm RECEIVE_BOOT_COMPLETED
 
-      # Fix voor BG-plugin (AGP 8): BuildConfig stubs
       - name: Patch BG plugin BuildConfig stubs
         shell: bash
         run: |
