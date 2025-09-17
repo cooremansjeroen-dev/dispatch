@@ -73,7 +73,7 @@ jobs:
           protocol: ftps
           port: 21
           local-dir: deploy/
-          server-dir: public_html/dispatch/app/
+          server-dir: app/
 
 
       - name: Generate icons & splash (Android)
